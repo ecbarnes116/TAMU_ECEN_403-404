@@ -1,0 +1,6 @@
+count
+adc_buf[0]
+adc_buf_max
+adc_value[0]
+adc_value[1]
+adc_value[4]

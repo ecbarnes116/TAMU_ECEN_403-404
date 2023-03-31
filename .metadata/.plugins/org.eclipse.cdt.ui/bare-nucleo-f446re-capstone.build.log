@@ -1,17 +1,10 @@
-19:11:35 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
+16:04:46 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
 make -j12 all 
-arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F446xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../FATFS/Target -I../FATFS/App -I../Middlewares/Third_Party/FatFs/src -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
-arm-none-eabi-gcc -o "bare-nucleo-f446re-capstone.elf" @"objects.list"   -mcpu=cortex-m4 -T"C:\Users\Ethan\STM32CubeIDE\workspace_1.11.2\bare-nucleo-f446re-capstone\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="bare-nucleo-f446re-capstone.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
-Finished building target: bare-nucleo-f446re-capstone.elf
- 
 arm-none-eabi-size   bare-nucleo-f446re-capstone.elf 
-arm-none-eabi-objdump -h -S  bare-nucleo-f446re-capstone.elf  > "bare-nucleo-f446re-capstone.list"
    text	   data	    bss	    dec	    hex	filename
-  38420	    144	  28216	  66780	  104dc	bare-nucleo-f446re-capstone.elf
+  23412	    144	  18352	  41908	   a3b4	bare-nucleo-f446re-capstone.elf
 Finished building: default.size.stdout
  
-Finished building: bare-nucleo-f446re-capstone.list
- 
 
-19:11:37 Build Finished. 0 errors, 0 warnings. (took 1s.724ms)
+16:04:46 Build Finished. 0 errors, 0 warnings. (took 235ms)
 

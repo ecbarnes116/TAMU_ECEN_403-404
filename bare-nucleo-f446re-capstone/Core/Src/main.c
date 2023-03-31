@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "fatfs.h"
+#include "math.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -56,6 +57,7 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 uint32_t adc_buf[ADC_BUF_LEN];
+uint32_t adc_buf_max;
 
 /* USER CODE END PV */
 
@@ -72,9 +74,26 @@ static void MX_ADC1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+// Store ADC value for each channel
+uint32_t adc_value[5];
+
+
+//_____Print to console
+int _write(int file, char *ptr, int len){
+	int i = 0;
+	for(i = 0; i < len; i++){
+		ITM_SendChar((*ptr++));
+	}
+	return len;
+}
+
+uint8_t count = 0;
+
+//_____Mount and write to SD card
 FATFS fs; // file system
 FIL fil; // file (this needs to be changed)
 FRESULT fresult;
+// Size of buffer may need to match size of input buffer from sensors?
 char buffer[1024];
 
 UINT br, bw;
@@ -144,44 +163,69 @@ int main(void)
   // HAL_ADC_Stop(ADC_HandleTypeDef* hadc)
 
   // 12:30 Digi-Key Getting Started With STM32 & Nucleo Part 4
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
+  // adv_buf is where the values from the ADC are located
+  // HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_value, 5);
+  adc_buf_max = 0;
+
+  // What should I initialize these values to?
+  // I could just not initialize them to a value, but then
+  // use a HAL delay once the program starts so there is an
+  // extremely quick (1 ms) grace period where it isn't checking
+  // for explosions.
+  uint32_t previous_audio = 0;
+  uint32_t previous_pressure = 0;
+  uint32_t previous_acc = 0;
+
+  uint32_t previous_acc_x = 0;
+  uint32_t previous_acc_y = 0;
+  uint32_t previous_acc_z = 0;
 
 
-  // Mount SD card
-  fresult = f_mount(&fs, " ", 0);
+  uint32_t previous_audio = adc_value[0];
+  uint32_t previous_pressure = adc_value[1];
+  uint32_t previous_acc = sqrt(pow(adc_value[2], 2) + pow(adc_value[3], 2) + pow(adc_value[4], 2));
 
-  if(fresult != FR_OK){
-	  send_uart("error in mounting SD card...\n");
-  }
-  else{
-	  send_uart("SD card mounted successfully...\n");
-  }
+  uint32_t previous_acc_x = adc_value[2];
+  uint32_t previous_acc_y = adc_value[3];
+  uint32_t previous_acc_z = adc_value[4];
 
-  // Check free space on card
-  f_getfree("", &fre_clust, &pfs);
 
-  total = (uint32_t)((pfs->n_fatent - 2) * (pfs->csize * 0.5));
-  sprintf(buffer, "SD card total size: \t%lu\n", total);
-  send_uart(buffer);
-  bufclear();
-  free_space = (uint32_t)(fre_clust * pfs->csize * 0.5);
-  sprintf(buffer, "SD card free space: \t%lu\n", free_space);
-  send_uart(buffer);
-
-  // Create and open file, then close file
-  fresult = f_open(&fil, "file2.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
-  fresult = f_puts("This data is from the first file\n\n", &fil);
-  fresult = f_close(&fil);
-
-  send_uart("file1.txt created and the data is written\n");
-  fresult = f_open(&fil, "file1.txt", FA_READ);
-
-  // Everything works good except the "file.size" reference.
-  // This has been replaced in ChaN's FatFs R0.12c version with f_size(&fil).
-  f_gets(buffer, f_size(&fil), &fil);
-  send_uart(buffer);
-  f_close(&fil);
-  bufclear();
+//  // Mount SD card
+//  fresult = f_mount(&fs, " ", 0);
+//
+//  if(fresult != FR_OK){
+//	  send_uart("error in mounting SD card...\n");
+//  }
+//  else{
+//	  send_uart("SD card mounted successfully...\n");
+//  }
+//
+//  // Check free space on card
+//  f_getfree("", &fre_clust, &pfs);
+//
+//  total = (uint32_t)((pfs->n_fatent - 2) * (pfs->csize * 0.5));
+//  sprintf(buffer, "SD card total size: \t%lu\n", total);
+//  send_uart(buffer);
+//  bufclear();
+//  free_space = (uint32_t)(fre_clust * pfs->csize * 0.5);
+//  sprintf(buffer, "SD card free space: \t%lu\n", free_space);
+//  send_uart(buffer);
+//
+//  // Create and open file, then close file
+//  fresult = f_open(&fil, "file2.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+//  fresult = f_puts("This data is from the first file\n\n", &fil);
+//  fresult = f_close(&fil);
+//
+//  send_uart("file1.txt created and the data is written\n");
+//  fresult = f_open(&fil, "file1.txt", FA_READ);
+//
+//  // Everything works good except the "file.size" reference
+//  // This has been replaced in ChaN's FatFs R0.12c version with f_size(&fil)
+//  f_gets(buffer, f_size(&fil), &fil);
+//  send_uart(buffer);
+//  f_close(&fil);
+//  bufclear();
 
   /* USER CODE END 2 */
 
@@ -193,6 +237,18 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  //_____Test code for printing to console
+	  // Increment count
+	  count++;
+	  // Print count message (doesn't work currently)
+	  printf("HELLO WORLD count = %d \n", count);
+	  // 250 ms delay
+	  // FIXME: Change delay to be every microsecond (0.001)
+	  HAL_Delay(250);
+
+	  if(adc_buf[0] > adc_buf_max) {
+		  adc_buf_max = adc_buf[0];
+	  }
   }
   /* USER CODE END 3 */
 }
@@ -273,13 +329,13 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ENABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 5;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -291,7 +347,43 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = 3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = 4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = 5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
