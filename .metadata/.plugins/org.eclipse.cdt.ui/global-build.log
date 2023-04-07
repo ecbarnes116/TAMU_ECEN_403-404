@@ -1,28 +1,67 @@
-16:03:12 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
+14:52:45 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
 make -j12 all 
 arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F446xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../FATFS/Target -I../FATFS/App -I../Middlewares/Third_Party/FatFs/src -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
+../Core/Src/main.c: In function 'main':
+../Core/Src/main.c:194:12: warning: variable 'previous_acc_z' set but not used [-Wunused-but-set-variable]
+  194 |   uint32_t previous_acc_z;
+      |            ^~~~~~~~~~~~~~
+../Core/Src/main.c:193:12: warning: variable 'previous_acc_y' set but not used [-Wunused-but-set-variable]
+  193 |   uint32_t previous_acc_y;
+      |            ^~~~~~~~~~~~~~
+../Core/Src/main.c:192:12: warning: variable 'previous_acc_x' set but not used [-Wunused-but-set-variable]
+  192 |   uint32_t previous_acc_x;
+      |            ^~~~~~~~~~~~~~
+../Core/Src/main.c:190:12: warning: variable 'previous_acc' set but not used [-Wunused-but-set-variable]
+  190 |   uint32_t previous_acc;
+      |            ^~~~~~~~~~~~
+../Core/Src/main.c:189:12: warning: variable 'previous_pressure' set but not used [-Wunused-but-set-variable]
+  189 |   uint32_t previous_pressure;
+      |            ^~~~~~~~~~~~~~~~~
+../Core/Src/main.c:188:12: warning: variable 'previous_audio' set but not used [-Wunused-but-set-variable]
+  188 |   uint32_t previous_audio;
+      |            ^~~~~~~~~~~~~~
 arm-none-eabi-gcc -o "bare-nucleo-f446re-capstone.elf" @"objects.list"   -mcpu=cortex-m4 -T"C:\Users\Ethan\STM32CubeIDE\workspace_1.11.2\bare-nucleo-f446re-capstone\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="bare-nucleo-f446re-capstone.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 Finished building target: bare-nucleo-f446re-capstone.elf
  
 arm-none-eabi-size   bare-nucleo-f446re-capstone.elf 
 arm-none-eabi-objdump -h -S  bare-nucleo-f446re-capstone.elf  > "bare-nucleo-f446re-capstone.list"
    text	   data	    bss	    dec	    hex	filename
-  23412	    144	  18352	  41908	   a3b4	bare-nucleo-f446re-capstone.elf
+  47848	    144	  11936	  59928	   ea18	bare-nucleo-f446re-capstone.elf
 Finished building: default.size.stdout
  
 Finished building: bare-nucleo-f446re-capstone.list
  
-16:03:24 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
+14:53:50 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
 make -j12 all 
 arm-none-eabi-size   bare-nucleo-f446re-capstone.elf 
    text	   data	    bss	    dec	    hex	filename
-  23412	    144	  18352	  41908	   a3b4	bare-nucleo-f446re-capstone.elf
+  47848	    144	  11936	  59928	   ea18	bare-nucleo-f446re-capstone.elf
 Finished building: default.size.stdout
  
-16:04:46 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
+15:18:05 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
 make -j12 all 
 arm-none-eabi-size   bare-nucleo-f446re-capstone.elf 
    text	   data	    bss	    dec	    hex	filename
-  23412	    144	  18352	  41908	   a3b4	bare-nucleo-f446re-capstone.elf
+  47848	    144	  11936	  59928	   ea18	bare-nucleo-f446re-capstone.elf
+Finished building: default.size.stdout
+ 
+15:41:06 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
+make -j12 all 
+arm-none-eabi-gcc -o "bare-nucleo-f446re-capstone.elf" @"objects.list"   -mcpu=cortex-m4 -T"C:\Users\Ethan\STM32CubeIDE\workspace_1.11.2\bare-nucleo-f446re-capstone\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="bare-nucleo-f446re-capstone.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Finished building target: bare-nucleo-f446re-capstone.elf
+ 
+arm-none-eabi-size   bare-nucleo-f446re-capstone.elf 
+arm-none-eabi-objdump -h -S  bare-nucleo-f446re-capstone.elf  > "bare-nucleo-f446re-capstone.list"
+   text	   data	    bss	    dec	    hex	filename
+  47848	    144	  11936	  59928	   ea18	bare-nucleo-f446re-capstone.elf
+Finished building: default.size.stdout
+ 
+Finished building: bare-nucleo-f446re-capstone.list
+ 
+15:44:21 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
+make -j12 all 
+arm-none-eabi-size   bare-nucleo-f446re-capstone.elf 
+   text	   data	    bss	    dec	    hex	filename
+  47848	    144	  11936	  59928	   ea18	bare-nucleo-f446re-capstone.elf
 Finished building: default.size.stdout
  

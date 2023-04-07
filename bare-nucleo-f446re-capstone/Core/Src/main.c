@@ -19,13 +19,13 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "fatfs.h"
-#include "math.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "fatfs_sd.h"
 #include "string.h"
-#include "stdio.h"
+#include <stdio.h>
+#include <math.h>
 
 /* USER CODE END Includes */
 
@@ -43,7 +43,7 @@
 /* USER CODE BEGIN PM */
 
 // 4 thousand samples in buffer
-#define ADC_BUF_LEN 4096
+#define NUM_CHANNELS 5
 
 /* USER CODE END PM */
 
@@ -53,10 +53,14 @@ DMA_HandleTypeDef hdma_adc1;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim1;
+
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-uint32_t adc_buf[ADC_BUF_LEN];
+
+// Store ADC values for each channel
+uint32_t adc_value[NUM_CHANNELS];
 uint32_t adc_buf_max;
 
 /* USER CODE END PV */
@@ -68,21 +72,24 @@ static void MX_DMA_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-// Store ADC value for each channel
-uint32_t adc_value[5];
-
 
 //_____Print to console
+int __io_putchar(int ch){
+	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xFFFF);
+	return ch;
+}
+
 int _write(int file, char *ptr, int len){
-	int i = 0;
-	for(i = 0; i < len; i++){
-		ITM_SendChar((*ptr++));
+	int DataIdx;
+	for(DataIdx = 0; DataIdx < len; DataIdx++){
+		__io_putchar(*ptr++);
 	}
 	return len;
 }
@@ -94,6 +101,8 @@ FATFS fs; // file system
 FIL fil; // file (this needs to be changed)
 FRESULT fresult;
 // Size of buffer may need to match size of input buffer from sensors?
+// Needs to be divisible by the number of bytes in each line
+// that I am writing to the SD card
 char buffer[1024];
 
 UINT br, bw;
@@ -102,11 +111,13 @@ FATFS *pfs;
 DWORD fre_clust;
 uint32_t total, free_space;
 
+// Send data through UART
 void send_uart(char *string){
 	uint8_t len = strlen(string);
 	HAL_UART_Transmit(&huart1, (uint8_t *) string, len, 2000);
 }
 
+// Find the siz of data in buffer
 int bufsize(char *buf){
 	int i = 0;
 	while(*buf++ != '\0'){
@@ -115,6 +126,7 @@ int bufsize(char *buf){
 	return i;
 }
 
+// Clear buffer
 void bufclear(void){
 	for(int i = 0; i < 1024; i++){
 		buffer[i] = '\0';
@@ -130,6 +142,8 @@ void bufclear(void){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+
+	int UART_counter = 0;
 
   /* USER CODE END 1 */
 
@@ -156,76 +170,77 @@ int main(void)
   MX_USART1_UART_Init();
   MX_FATFS_Init();
   MX_ADC1_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
   // Start DMA buffer
   // Might need to stop buffer at some point
   // HAL_ADC_Stop(ADC_HandleTypeDef* hadc)
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_value, NUM_CHANNELS);
 
-  // 12:30 Digi-Key Getting Started With STM32 & Nucleo Part 4
-  // adv_buf is where the values from the ADC are located
-  // HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_value, 5);
   adc_buf_max = 0;
 
   // What should I initialize these values to?
   // I could just not initialize them to a value, but then
   // use a HAL delay once the program starts so there is an
   // extremely quick (1 ms) grace period where it isn't checking
-  // for explosions.
-  uint32_t previous_audio = 0;
-  uint32_t previous_pressure = 0;
-  uint32_t previous_acc = 0;
+  // for explosions, but still filling the DMA buffer?
+  uint32_t previous_audio;
+  uint32_t previous_pressure;
+  uint32_t previous_acc;
 
-  uint32_t previous_acc_x = 0;
-  uint32_t previous_acc_y = 0;
-  uint32_t previous_acc_z = 0;
+  uint32_t previous_acc_x;
+  uint32_t previous_acc_y;
+  uint32_t previous_acc_z;
+
+  uint32_t current_audio;
+  uint32_t current_pressure;
+  uint32_t current_acc;
+
+  uint32_t current_acc_x;
+  uint32_t current_acc_y;
+  uint32_t current_acc_z;
 
 
-  uint32_t previous_audio = adc_value[0];
-  uint32_t previous_pressure = adc_value[1];
-  uint32_t previous_acc = sqrt(pow(adc_value[2], 2) + pow(adc_value[3], 2) + pow(adc_value[4], 2));
 
-  uint32_t previous_acc_x = adc_value[2];
-  uint32_t previous_acc_y = adc_value[3];
-  uint32_t previous_acc_z = adc_value[4];
+  // Mount SD card
+  fresult = f_mount(&fs, "", 0);
 
+  if(fresult != FR_OK){
+	  send_uart("error in mounting SD card...\n");
+  }
+  else{
+	  send_uart("SD card mounted successfully...\n");
+  }
 
-//  // Mount SD card
-//  fresult = f_mount(&fs, " ", 0);
-//
-//  if(fresult != FR_OK){
-//	  send_uart("error in mounting SD card...\n");
-//  }
-//  else{
-//	  send_uart("SD card mounted successfully...\n");
-//  }
-//
-//  // Check free space on card
-//  f_getfree("", &fre_clust, &pfs);
-//
-//  total = (uint32_t)((pfs->n_fatent - 2) * (pfs->csize * 0.5));
-//  sprintf(buffer, "SD card total size: \t%lu\n", total);
-//  send_uart(buffer);
-//  bufclear();
-//  free_space = (uint32_t)(fre_clust * pfs->csize * 0.5);
-//  sprintf(buffer, "SD card free space: \t%lu\n", free_space);
-//  send_uart(buffer);
-//
-//  // Create and open file, then close file
-//  fresult = f_open(&fil, "file2.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
-//  fresult = f_puts("This data is from the first file\n\n", &fil);
-//  fresult = f_close(&fil);
-//
-//  send_uart("file1.txt created and the data is written\n");
-//  fresult = f_open(&fil, "file1.txt", FA_READ);
-//
-//  // Everything works good except the "file.size" reference
-//  // This has been replaced in ChaN's FatFs R0.12c version with f_size(&fil)
-//  f_gets(buffer, f_size(&fil), &fil);
-//  send_uart(buffer);
-//  f_close(&fil);
-//  bufclear();
+  // Check free space on SD card
+  f_getfree("", &fre_clust, &pfs);
+
+  total = (uint32_t)((pfs->n_fatent - 2) * pfs->csize * 0.5);
+  sprintf(buffer, "SD card total size: \t%lu\n", total);
+  send_uart(buffer);
+  bufclear();
+  free_space = (uint32_t)(fre_clust * pfs->csize * 0.5);
+  sprintf(buffer, "SD card free space: \t%lu\n", free_space);
+  send_uart(buffer);
+
+  // Create and open file, write to file, then close file
+  fresult = f_open(&fil, "file1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+  fresult = f_puts("This data is from the first file\n\n", &fil);
+  fresult = f_close(&fil);
+
+  send_uart("file1.txt created and the data is written\n");
+  fresult = f_open(&fil, "file1.txt", FA_READ);
+
+  // Everything worked good except the "fil.fsize" reference
+  // This has been replaced in ChaN's FatFs R0.12c version with f_size(&fil)
+  f_gets(buffer, f_size(&fil), &fil);
+  send_uart(buffer);
+  f_close(&fil);
+  bufclear();
+
+  // Using f_write and f_read
+  // fresult = f_open(&fil, "file2.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
 
   /* USER CODE END 2 */
 
@@ -234,21 +249,48 @@ int main(void)
   while (1)
   {
 	  // bare-nucleo-f446re-capstone
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	  // Initialize respective sensor data variables
+	  current_audio = adc_value[0];
+	  current_pressure = adc_value[1];
+	  current_acc = sqrt(pow(adc_value[2], 2) + pow(adc_value[3], 2) + pow(adc_value[4], 2));
+
+	  current_acc_x = adc_value[2];
+	  current_acc_y = adc_value[3];
+	  current_acc_z = adc_value[4];
+
+	  // Attempt to write outputs to console (or somewhere, idk) using HAL UART
+
+
 	  //_____Test code for printing to console
 	  // Increment count
 	  count++;
 	  // Print count message (doesn't work currently)
-	  printf("HELLO WORLD count = %d \n", count);
+	  printf("HELLO WORLD count = %d\r\n", count);
 	  // 250 ms delay
 	  // FIXME: Change delay to be every microsecond (0.001)
 	  HAL_Delay(250);
 
-	  if(adc_buf[0] > adc_buf_max) {
-		  adc_buf_max = adc_buf[0];
+	  if(adc_value[0] > adc_buf_max) {
+		  adc_buf_max = adc_value[0];
 	  }
+
+	  //Print through UART
+	  printf("Current Number is: %d\r\n", UART_counter++);
+	  HAL_Delay(500);
+
+	  // The current samples will be the "previous" samples for the next samples
+	  previous_audio = current_audio;
+	  previous_pressure = current_pressure;
+	  previous_acc = current_acc;
+
+	  previous_acc_x = current_acc_x;
+	  previous_acc_y = current_acc_y;
+	  previous_acc_z = current_acc_z;
   }
   /* USER CODE END 3 */
 }
@@ -433,6 +475,52 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 65535;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -496,17 +584,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB0 */
   GPIO_InitStruct.Pin = GPIO_PIN_0;
@@ -519,14 +597,14 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 // Called when buffer is half filled
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
-	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-}
+//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+//	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+//}
 
 // Called when buffer is completely filled
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-}
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+//	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+//}
 
 /* USER CODE END 4 */
 
