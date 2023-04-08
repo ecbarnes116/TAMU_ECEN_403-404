@@ -1,10 +1,10 @@
-15:44:21 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
+22:24:05 **** Incremental Build of configuration Debug for project bare-nucleo-f446re-capstone ****
 make -j12 all 
 arm-none-eabi-size   bare-nucleo-f446re-capstone.elf 
    text	   data	    bss	    dec	    hex	filename
-  47848	    144	  11936	  59928	   ea18	bare-nucleo-f446re-capstone.elf
+  47632	    148	  11964	  59744	   e960	bare-nucleo-f446re-capstone.elf
 Finished building: default.size.stdout
  
 
-15:44:21 Build Finished. 0 errors, 0 warnings. (took 245ms)
+22:24:05 Build Finished. 0 errors, 0 warnings. (took 220ms)
 

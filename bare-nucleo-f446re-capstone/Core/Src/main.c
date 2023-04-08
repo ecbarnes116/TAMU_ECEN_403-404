@@ -36,14 +36,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define NUM_CHANNELS 5
+#define BUFFER_SIZE 128
 
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
-// 4 thousand samples in buffer
-#define NUM_CHANNELS 5
 
 /* USER CODE END PM */
 
@@ -60,8 +59,15 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 
 // Store ADC values for each channel
-uint32_t adc_value[NUM_CHANNELS];
+uint32_t adc_data[NUM_CHANNELS];
+uint32_t SD_value[NUM_CHANNELS];
+
 uint32_t adc_buf_max;
+
+static volatile uint32_t *fromADC_Ptr;
+static volatile uint32_t *toSD_Ptr = &adc_data[0];
+
+uint8_t dataReady;
 
 /* USER CODE END PV */
 
@@ -100,16 +106,14 @@ uint8_t count = 0;
 FATFS fs; // file system
 FIL fil; // file (this needs to be changed)
 FRESULT fresult;
-// Size of buffer may need to match size of input buffer from sensors?
-// Needs to be divisible by the number of bytes in each line
-// that I am writing to the SD card
-char buffer[1024];
-
 UINT br, bw;
-
 FATFS *pfs;
 DWORD fre_clust;
 uint32_t total, free_space;
+
+// Buffer for UART? Might not even need this
+char buffer[1024];
+
 
 // Send data through UART
 void send_uart(char *string){
@@ -117,7 +121,7 @@ void send_uart(char *string){
 	HAL_UART_Transmit(&huart1, (uint8_t *) string, len, 2000);
 }
 
-// Find the siz of data in buffer
+// Find the size of data in buffer
 int bufsize(char *buf){
 	int i = 0;
 	while(*buf++ != '\0'){
@@ -133,6 +137,26 @@ void bufclear(void){
 	}
 }
 
+// Size of buffer may need to match size of input buffer from sensors?
+// Needs to be divisible by the number of bytes in each line
+// that I am writing to the SD card
+
+// Called when buffer is half filled
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+	fromADC_Ptr = &adc_data[0];
+	toSD_Ptr = &SD_value[0];
+
+	dataReady = 1;
+}
+
+// Called when buffer is completely filled
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+	fromADC_Ptr = &adc_data[NUM_CHANNELS/2];
+	toSD_Ptr = &SD_value[NUM_CHANNELS/2];
+
+	dataReady = 1;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -142,8 +166,6 @@ void bufclear(void){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
-	int UART_counter = 0;
 
   /* USER CODE END 1 */
 
@@ -174,9 +196,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   // Start DMA buffer
-  // Might need to stop buffer at some point
-  // HAL_ADC_Stop(ADC_HandleTypeDef* hadc)
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_value, NUM_CHANNELS);
+  // Might need to stop DMA at some point
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_data, NUM_CHANNELS);
 
   adc_buf_max = 0;
 
@@ -224,14 +245,14 @@ int main(void)
   sprintf(buffer, "SD card free space: \t%lu\n", free_space);
   send_uart(buffer);
 
-  // Create and open file, write to file, then close file
+  // ********** Using puts puts and gets **********
+
+  // Open file 1, write to file, then close file
   fresult = f_open(&fil, "file1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
   fresult = f_puts("This data is from the first file\n\n", &fil);
   fresult = f_close(&fil);
-
   send_uart("file1.txt created and the data is written\n");
   fresult = f_open(&fil, "file1.txt", FA_READ);
-
   // Everything worked good except the "fil.fsize" reference
   // This has been replaced in ChaN's FatFs R0.12c version with f_size(&fil)
   f_gets(buffer, f_size(&fil), &fil);
@@ -239,8 +260,31 @@ int main(void)
   f_close(&fil);
   bufclear();
 
-  // Using f_write and f_read
-  // fresult = f_open(&fil, "file2.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+  // ********** Using f_write and f_read **********
+
+  // Open file 2
+  fresult = f_open(&fil, "file2.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+  // Write to file 2
+  strcpy(buffer, "This is file 2 and it says 'Hello from Ethan!'\n");
+  fresult = f_write(&fil, buffer, bufsize(buffer), &bw);
+  send_uart("file 2.txt created and data is written\n");
+  // Close file 2
+  f_close(&fil);
+  // Clear buffer to show that text is obtained from the file
+  bufclear();
+
+  // ********** UPDATE an existing file **********
+  // Open file with write access
+  fresult = f_open(&fil, "file2.txt", FA_OPEN_ALWAYS | FA_WRITE);
+  // Move offset to end of file (append) (offset = file size)
+  fresult = f_lseek(&fil, f_size(&fil));
+  // Write string to file
+  fresult = f_puts("This text should be appended\n", &fil);
+  // Write string to file
+  fresult = f_printf(&fil, "%d %s", 2023, "is the current year\n");
+  // Close file
+  f_close(&fil);
+
 
   /* USER CODE END 2 */
 
@@ -255,33 +299,40 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 	  // Initialize respective sensor data variables
-	  current_audio = adc_value[0];
-	  current_pressure = adc_value[1];
-	  current_acc = sqrt(pow(adc_value[2], 2) + pow(adc_value[3], 2) + pow(adc_value[4], 2));
+	  current_audio = adc_data[0];
+	  current_pressure = adc_data[1];
+	  current_acc = sqrt(pow(adc_data[2], 2) + pow(adc_data[3], 2) + pow(adc_data[4], 2));
 
-	  current_acc_x = adc_value[2];
-	  current_acc_y = adc_value[3];
-	  current_acc_z = adc_value[4];
-
-	  // Attempt to write outputs to console (or somewhere, idk) using HAL UART
+	  current_acc_x = adc_data[2];
+	  current_acc_y = adc_data[3];
+	  current_acc_z = adc_data[4];
 
 
-	  //_____Test code for printing to console
 	  // Increment count
 	  count++;
-	  // Print count message (doesn't work currently)
-	  printf("HELLO WORLD count = %d\r\n", count);
-	  // 250 ms delay
-	  // FIXME: Change delay to be every microsecond (0.001)
+
+	  // FIXME: Change delay to be every microsecond (0.001)?
 	  HAL_Delay(250);
 
-	  if(adc_value[0] > adc_buf_max) {
-		  adc_buf_max = adc_value[0];
+	  if(adc_data[0] > adc_buf_max) {
+		  adc_buf_max = adc_data[0];
 	  }
 
-	  //Print through UART
-	  printf("Current Number is: %d\r\n", UART_counter++);
-	  HAL_Delay(500);
+	  // Function to tell when DMA buffer is full
+	  // When buffer full, write entire buffer to SD card
+	  // Big for loop to loop through every value of buffer
+	  // so that I can format each value properly?
+
+
+
+	  // Open new file to save count variable
+	  fresult = f_open(&fil, "ADC_count_log.txt", FA_OPEN_ALWAYS | FA_WRITE);
+	  // Move offset to end of file (append) (offset = file size)
+	  fresult = f_lseek(&fil, f_size(&fil));
+	  // Write string to file
+	  fresult = f_printf(&fil, "count = %d\n", count);
+	  // Close file
+	  f_close(&fil);
 
 	  // The current samples will be the "previous" samples for the next samples
 	  previous_audio = current_audio;
@@ -291,7 +342,27 @@ int main(void)
 	  previous_acc_x = current_acc_x;
 	  previous_acc_y = current_acc_y;
 	  previous_acc_z = current_acc_z;
+
+	  // I want to be able to unmount the SD card and then break from the loop
+	  // when a button is pressed
+	  // The MCU should also stop recording data (maybe it's fine if it keeps going)
+	  // But I at least want to be able to safely unmount the SD card
+
+	  // Stop when count is a certain value
+	  if(count == 10) {
+		  break;
+	  }
+
   }
+
+  // Stop ADC DMA and disable ADC
+  HAL_ADC_Stop_DMA(&hadc1);
+
+  // After while loop when break
+  // Unmount SD card
+  fresult = f_mount(NULL, "", 1);
+
+
   /* USER CODE END 3 */
 }
 
@@ -596,15 +667,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-// Called when buffer is half filled
-//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
-//	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
-//}
-
-// Called when buffer is completely filled
-//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-//	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
-//}
 
 /* USER CODE END 4 */
 
