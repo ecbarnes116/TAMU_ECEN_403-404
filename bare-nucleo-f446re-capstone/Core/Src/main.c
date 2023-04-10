@@ -36,7 +36,15 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NUM_CHANNELS 5
+
+// Number of channels being read by ADC (set to 5 when ready)
+#define NUM_CHANNELS 4000
+// Number of samples per channel
+#define NUM_SAMPLES 800
+// Total number of samples across each channel (5*800 = buffer size of 4000)
+#define TOTAL_SAMPLES (NUM_CHANNELS*NUM_SAMPLES)
+
+// * Buffer that might be used for saving to SD card *
 #define BUFFER_SIZE 128
 
 /* USER CODE END PD */
@@ -54,20 +62,23 @@ SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim1;
 
-UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
 // Store ADC values for each channel
-uint32_t adc_data[NUM_CHANNELS];
-uint32_t SD_value[NUM_CHANNELS];
 
-uint32_t adc_buf_max;
+// 16 bit (Half Word) ADC DMA data width
+// ADC array for data (size of 5, width of 16 bits)
+uint16_t adc_data[NUM_CHANNELS];
+uint16_t SD_value[NUM_CHANNELS];
 
-static volatile uint32_t *fromADC_Ptr;
-static volatile uint32_t *toSD_Ptr = &adc_data[0];
+uint16_t adc_buf_max;
 
-uint8_t dataReady;
+static volatile uint16_t *fromADC_Ptr;
+static volatile uint16_t *toSD_Ptr = &adc_data[0];
+
+volatile uint8_t dataReady = 0;
 
 /* USER CODE END PV */
 
@@ -76,9 +87,9 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_USART1_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -88,7 +99,7 @@ static void MX_TIM1_Init(void);
 
 //_____Print to console
 int __io_putchar(int ch){
-	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xFFFF);
+	HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
 	return ch;
 }
 
@@ -118,7 +129,7 @@ char buffer[1024];
 // Send data through UART
 void send_uart(char *string){
 	uint8_t len = strlen(string);
-	HAL_UART_Transmit(&huart1, (uint8_t *) string, len, 2000);
+	HAL_UART_Transmit(&huart2, (uint8_t *) string, len, 2000);
 }
 
 // Find the size of data in buffer
@@ -189,15 +200,15 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_SPI1_Init();
-  MX_USART1_UART_Init();
   MX_FATFS_Init();
   MX_ADC1_Init();
   MX_TIM1_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
   // Start DMA buffer
   // Might need to stop DMA at some point
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_data, NUM_CHANNELS);
+  HAL_ADC_Start_DMA(&hadc1, (uint16_t*)adc_data, NUM_CHANNELS);
 
   adc_buf_max = 0;
 
@@ -206,21 +217,21 @@ int main(void)
   // use a HAL delay once the program starts so there is an
   // extremely quick (1 ms) grace period where it isn't checking
   // for explosions, but still filling the DMA buffer?
-  uint32_t previous_audio;
-  uint32_t previous_pressure;
-  uint32_t previous_acc;
+  uint16_t previous_audio;
+  uint16_t previous_pressure;
+  uint16_t previous_acc;
 
-  uint32_t previous_acc_x;
-  uint32_t previous_acc_y;
-  uint32_t previous_acc_z;
+  uint16_t previous_acc_x;
+  uint16_t previous_acc_y;
+  uint16_t previous_acc_z;
 
-  uint32_t current_audio;
-  uint32_t current_pressure;
-  uint32_t current_acc;
+  uint16_t current_audio;
+  uint16_t current_pressure;
+  uint16_t current_acc;
 
-  uint32_t current_acc_x;
-  uint32_t current_acc_y;
-  uint32_t current_acc_z;
+  uint16_t current_acc_x;
+  uint16_t current_acc_y;
+  uint16_t current_acc_z;
 
 
 
@@ -286,6 +297,10 @@ int main(void)
   f_close(&fil);
 
 
+  // Open buffer file
+  fresult = f_open(&fil, "adc_data.txt", FA_OPEN_ALWAYS | FA_WRITE);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -307,16 +322,21 @@ int main(void)
 	  current_acc_y = adc_data[3];
 	  current_acc_z = adc_data[4];
 
+	  while(dataReady == 0) {
+		  // Do stuff here with one half of ADC while
+		  // other half is being filled?
+		  fresult = f_lseek(&fil, f_size(&fil));
+		  fresult = f_printf(&fil, "ADC channel 0 (audio) = %d\n", current_audio);
+		  // fresult = f_sync(&fil);
 
-	  // Increment count
-	  count++;
+		  // Increment count
+		  count++;
+	  }
+	  dataReady = 0;
+
 
 	  // FIXME: Change delay to be every microsecond (0.001)?
-	  HAL_Delay(250);
-
-	  if(adc_data[0] > adc_buf_max) {
-		  adc_buf_max = adc_data[0];
-	  }
+	  // HAL_Delay(250);
 
 	  // Function to tell when DMA buffer is full
 	  // When buffer full, write entire buffer to SD card
@@ -325,14 +345,14 @@ int main(void)
 
 
 
-	  // Open new file to save count variable
-	  fresult = f_open(&fil, "ADC_count_log.txt", FA_OPEN_ALWAYS | FA_WRITE);
-	  // Move offset to end of file (append) (offset = file size)
-	  fresult = f_lseek(&fil, f_size(&fil));
-	  // Write string to file
-	  fresult = f_printf(&fil, "count = %d\n", count);
-	  // Close file
-	  f_close(&fil);
+//	  // Open new file to save count variable
+//	  fresult = f_open(&fil, "ADC_count_log.txt", FA_OPEN_ALWAYS | FA_WRITE);
+//	  // Move offset to end of file (append) (offset = file size)
+//	  fresult = f_lseek(&fil, f_size(&fil));
+//	  // Write string to file
+//	  fresult = f_printf(&fil, "count = %d\n", count);
+//	  // Close file
+//	  f_close(&fil);
 
 	  // The current samples will be the "previous" samples for the next samples
 	  previous_audio = current_audio;
@@ -343,13 +363,9 @@ int main(void)
 	  previous_acc_y = current_acc_y;
 	  previous_acc_z = current_acc_z;
 
-	  // I want to be able to unmount the SD card and then break from the loop
-	  // when a button is pressed
-	  // The MCU should also stop recording data (maybe it's fine if it keeps going)
-	  // But I at least want to be able to safely unmount the SD card
 
-	  // Stop when count is a certain value
-	  if(count == 10) {
+	  // Stop when count is a certain value (leads to unmount SD card)
+	  if(count == 100) {
 		  break;
 	  }
 
@@ -357,6 +373,9 @@ int main(void)
 
   // Stop ADC DMA and disable ADC
   HAL_ADC_Stop_DMA(&hadc1);
+
+  // Close buffer file
+  f_close(&fil);
 
   // After while loop when break
   // Unmount SD card
@@ -390,7 +409,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 180;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 2;
+  RCC_OscInitStruct.PLL.PLLQ = 8;
   RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -411,7 +430,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV16;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
@@ -477,7 +496,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Channel = ADC_CHANNEL_12;
   sConfig.Rank = 3;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -486,7 +505,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Channel = ADC_CHANNEL_13;
   sConfig.Rank = 4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -592,35 +611,35 @@ static void MX_TIM1_Init(void)
 }
 
 /**
-  * @brief USART1 Initialization Function
+  * @brief USART2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_USART1_UART_Init(void)
+static void MX_USART2_UART_Init(void)
 {
 
-  /* USER CODE BEGIN USART1_Init 0 */
+  /* USER CODE BEGIN USART2_Init 0 */
 
-  /* USER CODE END USART1_Init 0 */
+  /* USER CODE END USART2_Init 0 */
 
-  /* USER CODE BEGIN USART1_Init 1 */
+  /* USER CODE BEGIN USART2_Init 1 */
 
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN USART1_Init 2 */
+  /* USER CODE BEGIN USART2_Init 2 */
 
-  /* USER CODE END USART1_Init 2 */
+  /* USER CODE END USART2_Init 2 */
 
 }
 
@@ -651,6 +670,7 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
