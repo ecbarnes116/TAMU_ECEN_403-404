@@ -1,0 +1,17 @@
+../Core/Src/file_handling.c:30:5:bufsize	24	static
+../Core/Src/file_handling.c:37:6:clear_buffer	16	static
+../Core/Src/file_handling.c:42:6:clear_path	16	static
+../Core/Src/file_handling.c:47:6:send_uart	16	static
+../Core/Src/file_handling.c:55:5:cmdlength	24	static
+../Core/Src/file_handling.c:61:6:get_path	24	static
+../Core/Src/file_handling.c:74:6:mount_sd	8	static
+../Core/Src/file_handling.c:81:6:unmount_sd	8	static
+../Core/Src/file_handling.c:89:9:scan_files	88	static
+../Core/Src/file_handling.c:129:6:write_file	16	static
+../Core/Src/file_handling.c:186:6:read_file	16	static
+../Core/Src/file_handling.c:233:6:create_file	16	static
+../Core/Src/file_handling.c:263:6:remove_file	16	static
+../Core/Src/file_handling.c:290:6:create_dir	16	static
+../Core/Src/file_handling.c:305:6:check_sd	8	static
+../Core/Src/file_handling.c:318:6:check_file	40	static
+../Core/Src/file_handling.c:351:6:update_file	16	static
