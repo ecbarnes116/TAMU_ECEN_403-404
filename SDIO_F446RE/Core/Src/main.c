@@ -23,7 +23,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "file_handling.h"
+#include "stdio.h"
+//#include "file_handling.h"
 //#include "UartRingbuffer.h"
 
 /* USER CODE END Includes */
@@ -35,6 +36,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+#define BUFFER_SIZE 128
+#define PATH_SIZE 32
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -52,6 +57,9 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
+char buffer[BUFFER_SIZE];	// to store strings..
+char path[PATH_SIZE];		// buffer to store path
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,6 +76,35 @@ static void MX_SDIO_SD_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+// These are already defined in file_handling.c
+FATFS fs; // file system
+FIL fil; // file (this needs to be changed)
+FILINFO fno;		// ???
+FRESULT fresult;
+UINT br, bw;
+FATFS *pfs;
+DWORD fre_clust;
+uint32_t total, free_space;
+
+int _write(int file, char *ptr, int length) {
+	int i = 0;
+
+	for(i = 0; i < length; i++) {
+		ITM_SendChar((*ptr++));
+	}
+
+	return length;
+}
+
+int bufsize (char *buf)
+{
+	int i=0;
+	while (*buf++ != '\0') i++;
+	return i;
+}
+
+uint8_t count = 0;
+
 /* USER CODE END 0 */
 
 /**
@@ -77,90 +114,6 @@ static void MX_SDIO_SD_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
-	FATFS fs; // file system
-	FIL fil; // file (this needs to be changed)
-	FILINFO fno;		// ???
-	FRESULT fresult;
-	UINT br, bw;
-	FATFS *pfs;
-	DWORD fre_clust;
-	uint32_t total, free_space;
-
-	//mount_sd();
-	fresult = f_mount(&fs, "/", 1);
-	if (fresult != FR_OK) send_uart ("error in mounting SD CARD...\n");
-	else send_uart("SD CARD mounted successfully...\n");
-
-//	create_file("FILE1.TXT");
-//	create_file("FILE2.TXT");
-	char *name = "file_1.txt";
-
-	fresult = f_stat (name, &fno);
-	if (fresult == FR_OK)
-	{
-		sprintf (buffer, "*%s* already exists!!!!\n",name);
-		send_uart(buffer);
-	}
-	else {
-	fresult = f_open(&fil, name, FA_CREATE_ALWAYS|FA_READ|FA_WRITE);
-	if (fresult != FR_OK)
-	{
-		sprintf (buffer, "error no %d in creating file *%s*\n", fresult, name);
-		send_uart(buffer);
-	}
-	else
-	{
-		sprintf (buffer, "*%s* created successfully\n",name);
-		send_uart(buffer);
-	}
-
-	fresult = f_close(&fil);
-	if (fresult != FR_OK)
-	{
-		sprintf (buffer, "error no %d in closing file *%s*\n", fresult, name);
-		send_uart(buffer);
-	}
-	}
-
-	//unmount_sd();
-	fresult = f_mount(NULL, "/", 1);
-	if (fresult == FR_OK) send_uart ("SD CARD UNMOUNTED successfully...\n");
-	else send_uart("error!!! in UNMOUNTING SD CARD\n");
-
-//	// Mount SD card
-//	fresult = f_mount(&fs, "", 0);
-//
-//	if(fresult != FR_OK){
-//		send_uart("error in mounting SD card...\n");
-//	}
-//	else{
-//		send_uart("SD card mounted successfully...\n");
-//	}
-//
-//	// Check free space on SD card
-//	f_getfree("", &fre_clust, &pfs);
-//
-//	total = (uint32_t)((pfs->n_fatent - 2) * pfs->csize * 0.5);
-//	sprintf(buffer, "SD card total size: \t%lu\n", total);
-//	send_uart(buffer);
-//
-//	free_space = (uint32_t)(fre_clust * pfs->csize * 0.5);
-//	sprintf(buffer, "SD card free space: \t%lu\n", free_space);
-//	send_uart(buffer);
-//
-//	// ********** Using f_write and f_read **********
-//	// Open file 1
-//	fresult = f_open(&fil, "file_1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
-//	// Write to file 1
-//	strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
-//
-//	// I THINK THIS IS THE BUFFER AARON WAS TALKING ABOUT
-//	fresult = f_write(&fil, buffer, bufsize(buffer), &bw);
-//
-//	send_uart("file_1.txt created and data is written\n");
-//	// Close file 1
-//	f_close(&fil);
 
   /* USER CODE END 1 */
 
@@ -189,6 +142,71 @@ int main(void)
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
 
+  // Mount SD card
+  fresult = f_mount(&fs, "", 0);
+
+  BSP_SD_IsDetected();
+
+  if(fresult != FR_OK){
+	  printf("ERROR in mounting SD card...\n");
+  }
+  else {
+	  printf("SD card mounted successfully...\n");
+  }
+
+  char *name = "file_1.txt";
+
+  fresult = f_stat (name, &fno);
+
+  if (fresult == FR_OK) {
+	  printf("*%s* already exists!!!!\n",name);
+  }
+  else {
+	  fresult = f_open(&fil, name, FA_CREATE_ALWAYS|FA_READ|FA_WRITE);
+	  if(fresult != FR_OK) {
+		  printf ("error no %d in creating file *%s*\n", fresult, name);
+	  }
+	  else {
+		  printf ("*%s* created successfully\n",name);
+	  }
+
+	  strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
+
+	  // I THINK THIS IS THE BUFFER AARON WAS TALKING ABOUT
+	  fresult = f_write(&fil, buffer, bufsize(buffer), &bw);
+
+	  fresult = f_close(&fil);
+
+	  if (fresult != FR_OK) {
+		  printf ("error no %d in closing file *%s*\n", fresult, name);
+	  }
+  }
+
+  //unmount_sd();
+  fresult = f_mount(NULL, "/", 1);
+  if (fresult == FR_OK) {
+	  printf("SD CARD UNMOUNTED successfully...\n");
+  }
+  else {
+	  printf("error!!! in UNMOUNTING SD CARD\n");
+  }
+
+
+
+  //
+  //	// ********** Using f_write and f_read **********
+  //	// Open file 1
+  //	fresult = f_open(&fil, "file_1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+  //	// Write to file 1
+  //	strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
+  //
+  //	// I THINK THIS IS THE BUFFER AARON WAS TALKING ABOUT
+  //	fresult = f_write(&fil, buffer, bufsize(buffer), &bw);
+  //
+  //	send_uart("file_1.txt created and data is written\n");
+  //	// Close file 1
+  //	f_close(&fil);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -198,6 +216,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	  // ***************** Testing debugging *****************
+	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+	  count++;
+	  printf("count = %d \n", count);
+	  HAL_Delay(250);
+
   }
   /* USER CODE END 3 */
 }
@@ -327,7 +352,7 @@ static void MX_SDIO_SD_Init(void)
   hsd.Init.ClockEdge = SDIO_CLOCK_EDGE_RISING;
   hsd.Init.ClockBypass = SDIO_CLOCK_BYPASS_DISABLE;
   hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
-  hsd.Init.BusWide = SDIO_BUS_WIDE_4B;
+  hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
   hsd.Init.ClockDiv = 18;
   /* USER CODE BEGIN SDIO_Init 2 */

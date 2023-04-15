@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">&#x0A;<refactoring comment="Delete resource &apos;SDIO_F446RE/Core/Src/file_handling.c&apos;" deleteContents="false" description="Delete resource &apos;SDIO_F446RE/Core/Src/file_handling.c&apos;" element1="/SDIO_F446RE/Core/Src/file_handling.c" flags="7" id="org.eclipse.ltk.core.refactoring.delete.resources" resources="1" stamp="1681526984080"/>&#x0A;<refactoring comment="Delete resource &apos;SDIO_F446RE/Core/Inc/file_handling.h&apos;" deleteContents="false" description="Delete resource &apos;SDIO_F446RE/Core/Inc/file_handling.h&apos;" element1="/SDIO_F446RE/Core/Inc/file_handling.h" flags="7" id="org.eclipse.ltk.core.refactoring.delete.resources" resources="1" stamp="1681526996455"/>
+</session>

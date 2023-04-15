@@ -1,40 +1,53 @@
-23:58:12 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
+16:10:21 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
 make -j12 all 
 arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F446xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../FATFS/Target -I../FATFS/App -I../Middlewares/Third_Party/FatFs/src -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
 ../Core/Src/main.c: In function 'main':
-../Core/Src/main.c:88:18: warning: unused variable 'free_space' [-Wunused-variable]
-   88 |  uint32_t total, free_space;
-      |                  ^~~~~~~~~~
-../Core/Src/main.c:88:11: warning: unused variable 'total' [-Wunused-variable]
-   88 |  uint32_t total, free_space;
-      |           ^~~~~
-../Core/Src/main.c:87:8: warning: unused variable 'fre_clust' [-Wunused-variable]
-   87 |  DWORD fre_clust;
-      |        ^~~~~~~~~
-../Core/Src/main.c:86:9: warning: unused variable 'pfs' [-Wunused-variable]
-   86 |  FATFS *pfs;
-      |         ^~~
-../Core/Src/main.c:85:11: warning: unused variable 'bw' [-Wunused-variable]
-   85 |  UINT br, bw;
-      |           ^~
-../Core/Src/main.c:85:7: warning: unused variable 'br' [-Wunused-variable]
-   85 |  UINT br, bw;
-      |       ^~
+../Core/Src/main.c:173:4: warning: implicit declaration of function 'strcpy' [-Wimplicit-function-declaration]
+  173 |    strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
+      |    ^~~~~~
+../Core/Src/main.c:173:4: warning: incompatible implicit declaration of built-in function 'strcpy'
+../Core/Src/main.c:27:1: note: include '<string.h>' or provide a declaration of 'strcpy'
+   26 | #include "stdio.h"
+  +++ |+#include <string.h>
+   27 | //#include "file_handling.h"
 arm-none-eabi-gcc -o "SDIO_F446RE.elf" @"objects.list"   -mcpu=cortex-m4 -T"C:\Users\Ethan\STM32CubeIDE\workspace_1.11.2\SDIO_F446RE\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="SDIO_F446RE.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 Finished building target: SDIO_F446RE.elf
  
 arm-none-eabi-size   SDIO_F446RE.elf 
 arm-none-eabi-objdump -h -S  SDIO_F446RE.elf  > "SDIO_F446RE.list"
    text	   data	    bss	    dec	    hex	filename
-  37748	    120	   2216	  40084	   9c94	SDIO_F446RE.elf
+  38044	    120	  10472	  48636	   bdfc	SDIO_F446RE.elf
 Finished building: default.size.stdout
  
 Finished building: SDIO_F446RE.list
  
-23:58:32 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
+16:10:45 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
 make -j12 all 
 arm-none-eabi-size   SDIO_F446RE.elf 
    text	   data	    bss	    dec	    hex	filename
-  37748	    120	   2216	  40084	   9c94	SDIO_F446RE.elf
+  38044	    120	  10472	  48636	   bdfc	SDIO_F446RE.elf
 Finished building: default.size.stdout
+ 
+16:12:15 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
+make -j12 all 
+arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F446xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../FATFS/Target -I../FATFS/App -I../Middlewares/Third_Party/FatFs/src -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
+../Core/Src/main.c: In function 'main':
+../Core/Src/main.c:173:4: warning: implicit declaration of function 'strcpy' [-Wimplicit-function-declaration]
+  173 |    strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
+      |    ^~~~~~
+../Core/Src/main.c:173:4: warning: incompatible implicit declaration of built-in function 'strcpy'
+../Core/Src/main.c:27:1: note: include '<string.h>' or provide a declaration of 'strcpy'
+   26 | #include "stdio.h"
+  +++ |+#include <string.h>
+   27 | //#include "file_handling.h"
+arm-none-eabi-gcc -o "SDIO_F446RE.elf" @"objects.list"   -mcpu=cortex-m4 -T"C:\Users\Ethan\STM32CubeIDE\workspace_1.11.2\SDIO_F446RE\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="SDIO_F446RE.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Finished building target: SDIO_F446RE.elf
+ 
+arm-none-eabi-size   SDIO_F446RE.elf 
+arm-none-eabi-objdump -h -S  SDIO_F446RE.elf  > "SDIO_F446RE.list"
+   text	   data	    bss	    dec	    hex	filename
+  37092	    120	  10472	  47684	   ba44	SDIO_F446RE.elf
+Finished building: default.size.stdout
+ 
+Finished building: SDIO_F446RE.list
  
