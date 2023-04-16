@@ -1,52 +1,58 @@
-16:10:21 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
+19:36:16 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
+make -j12 all 
+arm-none-eabi-size   SDIO_F446RE.elf 
+   text	   data	    bss	    dec	    hex	filename
+  48104	    124	  10516	  58744	   e578	SDIO_F446RE.elf
+Finished building: default.size.stdout
+ 
+19:36:32 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
+make -j12 all 
+arm-none-eabi-size   SDIO_F446RE.elf 
+   text	   data	    bss	    dec	    hex	filename
+  48104	    124	  10516	  58744	   e578	SDIO_F446RE.elf
+Finished building: default.size.stdout
+ 
+19:42:47 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
 make -j12 all 
 arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F446xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../FATFS/Target -I../FATFS/App -I../Middlewares/Third_Party/FatFs/src -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
 ../Core/Src/main.c: In function 'main':
-../Core/Src/main.c:173:4: warning: implicit declaration of function 'strcpy' [-Wimplicit-function-declaration]
-  173 |    strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
-      |    ^~~~~~
-../Core/Src/main.c:173:4: warning: incompatible implicit declaration of built-in function 'strcpy'
-../Core/Src/main.c:27:1: note: include '<string.h>' or provide a declaration of 'strcpy'
-   26 | #include "stdio.h"
-  +++ |+#include <string.h>
-   27 | //#include "file_handling.h"
+../Core/Src/main.c:192:29: warning: passing argument 2 of 'HAL_ADC_Start_DMA' from incompatible pointer type [-Wincompatible-pointer-types]
+  192 |   HAL_ADC_Start_DMA(&hadc1, (uint16_t*)adc_data, NUM_CHANNELS);
+      |                             ^~~~~~~~~~~~~~~~~~~
+      |                             |
+      |                             uint16_t * {aka short unsigned int *}
+In file included from ../Core/Inc/stm32f4xx_hal_conf.h:294,
+                 from ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:29,
+                 from ../Core/Inc/main.h:30,
+                 from ../Core/Src/main.c:20:
+../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_adc.h:594:72: note: expected 'uint32_t *' {aka 'long unsigned int *'} but argument is of type 'uint16_t *' {aka 'short unsigned int *'}
+  594 | HAL_StatusTypeDef HAL_ADC_Start_DMA(ADC_HandleTypeDef* hadc, uint32_t* pData, uint32_t Length);
+      |                                                              ~~~~~~~~~~^~~~~
+../Core/Src/main.c:205:12: warning: variable 'previous_acc_z' set but not used [-Wunused-but-set-variable]
+  205 |   uint16_t previous_acc_z;
+      |            ^~~~~~~~~~~~~~
+../Core/Src/main.c:204:12: warning: variable 'previous_acc_y' set but not used [-Wunused-but-set-variable]
+  204 |   uint16_t previous_acc_y;
+      |            ^~~~~~~~~~~~~~
+../Core/Src/main.c:203:12: warning: variable 'previous_acc_x' set but not used [-Wunused-but-set-variable]
+  203 |   uint16_t previous_acc_x;
+      |            ^~~~~~~~~~~~~~
+../Core/Src/main.c:201:12: warning: variable 'previous_acc' set but not used [-Wunused-but-set-variable]
+  201 |   uint16_t previous_acc;
+      |            ^~~~~~~~~~~~
+../Core/Src/main.c:200:12: warning: variable 'previous_pressure' set but not used [-Wunused-but-set-variable]
+  200 |   uint16_t previous_pressure;
+      |            ^~~~~~~~~~~~~~~~~
+../Core/Src/main.c:199:12: warning: variable 'previous_audio' set but not used [-Wunused-but-set-variable]
+  199 |   uint16_t previous_audio;
+      |            ^~~~~~~~~~~~~~
 arm-none-eabi-gcc -o "SDIO_F446RE.elf" @"objects.list"   -mcpu=cortex-m4 -T"C:\Users\Ethan\STM32CubeIDE\workspace_1.11.2\SDIO_F446RE\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="SDIO_F446RE.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 Finished building target: SDIO_F446RE.elf
  
 arm-none-eabi-size   SDIO_F446RE.elf 
 arm-none-eabi-objdump -h -S  SDIO_F446RE.elf  > "SDIO_F446RE.list"
    text	   data	    bss	    dec	    hex	filename
-  38044	    120	  10472	  48636	   bdfc	SDIO_F446RE.elf
-Finished building: default.size.stdout
- 
-Finished building: SDIO_F446RE.list
- 
-16:10:45 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
-make -j12 all 
-arm-none-eabi-size   SDIO_F446RE.elf 
-   text	   data	    bss	    dec	    hex	filename
-  38044	    120	  10472	  48636	   bdfc	SDIO_F446RE.elf
-Finished building: default.size.stdout
- 
-16:12:15 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
-make -j12 all 
-arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F446xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../FATFS/Target -I../FATFS/App -I../Middlewares/Third_Party/FatFs/src -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
-../Core/Src/main.c: In function 'main':
-../Core/Src/main.c:173:4: warning: implicit declaration of function 'strcpy' [-Wimplicit-function-declaration]
-  173 |    strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
-      |    ^~~~~~
-../Core/Src/main.c:173:4: warning: incompatible implicit declaration of built-in function 'strcpy'
-../Core/Src/main.c:27:1: note: include '<string.h>' or provide a declaration of 'strcpy'
-   26 | #include "stdio.h"
-  +++ |+#include <string.h>
-   27 | //#include "file_handling.h"
-arm-none-eabi-gcc -o "SDIO_F446RE.elf" @"objects.list"   -mcpu=cortex-m4 -T"C:\Users\Ethan\STM32CubeIDE\workspace_1.11.2\SDIO_F446RE\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="SDIO_F446RE.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
-Finished building target: SDIO_F446RE.elf
- 
-arm-none-eabi-size   SDIO_F446RE.elf 
-arm-none-eabi-objdump -h -S  SDIO_F446RE.elf  > "SDIO_F446RE.list"
-   text	   data	    bss	    dec	    hex	filename
-  37092	    120	  10472	  47684	   ba44	SDIO_F446RE.elf
+  48104	    124	  10516	  58744	   e578	SDIO_F446RE.elf
 Finished building: default.size.stdout
  
 Finished building: SDIO_F446RE.list

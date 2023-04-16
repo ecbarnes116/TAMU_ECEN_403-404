@@ -24,6 +24,8 @@
 /* USER CODE BEGIN Includes */
 
 #include "stdio.h"
+#include <string.h>
+#include <math.h>
 //#include "file_handling.h"
 //#include "UartRingbuffer.h"
 
@@ -36,9 +38,15 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+// Number of channels being read by ADC (set to 5 when ready)
+#define NUM_CHANNELS 5
+// Number of samples per channel
+#define NUM_SAMPLES 800
+// Total number of samples across each channel (5*800 = buffer size of 4000)
+#define TOTAL_SAMPLES (NUM_CHANNELS*NUM_SAMPLES)
 
 #define BUFFER_SIZE 128
-#define PATH_SIZE 32
+//#define PATH_SIZE 32
 
 /* USER CODE END PD */
 
@@ -57,8 +65,18 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-char buffer[BUFFER_SIZE];	// to store strings..
-char path[PATH_SIZE];		// buffer to store path
+// 16 bit (Half Word) ADC DMA data width
+// ADC array for data (size of 5, width of 16 bits)
+uint16_t adc_data[NUM_CHANNELS];
+uint16_t SD_data[NUM_CHANNELS];
+
+static volatile uint16_t *fromADC_Ptr;
+static volatile uint16_t *toSD_Ptr = &adc_data[0];
+
+char buffer[BUFFER_SIZE];	// Store strings for f_write
+//char path[PATH_SIZE];		// buffer to store path
+
+volatile uint8_t dataReady = 0;
 
 /* USER CODE END PV */
 
@@ -96,11 +114,38 @@ int _write(int file, char *ptr, int length) {
 	return length;
 }
 
-int bufsize (char *buf)
-{
+int bufsize (char *buf) {
 	int i=0;
 	while (*buf++ != '\0') i++;
 	return i;
+}
+
+
+// Clear UART buffer for debugging
+void bufclear(void) {
+	for(int i = 0; i < BUFFER_SIZE; i++){
+		buffer[i] = '\0';
+	}
+}
+
+// Size of buffer needs to be a multiple of number of ADC channels (minimum of 5)
+// Needs to be divisible by the number of bytes in each line
+// that I am writing to the SD card				<-- What did I mean by this???
+
+// Called when buffer is half filled
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+	fromADC_Ptr = &adc_data[0];
+	toSD_Ptr = &SD_data[0];
+
+	dataReady = 1;
+}
+
+// Called when buffer is completely filled
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+	fromADC_Ptr = &adc_data[NUM_CHANNELS/2];
+	toSD_Ptr = &SD_data[NUM_CHANNELS/2];
+
+	dataReady = 1;
 }
 
 uint8_t count = 0;
@@ -142,10 +187,33 @@ int main(void)
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
 
+  // Start DMA buffer
+  // Might need to stop DMA at some point
+  HAL_ADC_Start_DMA(&hadc1, (uint16_t*)adc_data, NUM_CHANNELS);
+
+  // What should I initialize these values to?
+  // I could just not initialize them to a value, but then
+  // use a HAL delay once the program starts so there is an
+  // extremely quick (1 ms) grace period where it isn't checking
+  // for explosions, but still filling the DMA buffer?
+  uint16_t previous_audio;
+  uint16_t previous_pressure;
+  uint16_t previous_acc;
+
+  uint16_t previous_acc_x;
+  uint16_t previous_acc_y;
+  uint16_t previous_acc_z;
+
+  uint16_t current_audio;
+  uint16_t current_pressure;
+  uint16_t current_acc;
+
+  uint16_t current_acc_x;
+  uint16_t current_acc_y;
+  uint16_t current_acc_z;
+
   // Mount SD card
   fresult = f_mount(&fs, "", 0);
-
-  BSP_SD_IsDetected();
 
   if(fresult != FR_OK){
 	  printf("ERROR in mounting SD card...\n");
@@ -154,58 +222,79 @@ int main(void)
 	  printf("SD card mounted successfully...\n");
   }
 
-  char *name = "file_1.txt";
+  // Check free space on SD card
+  f_getfree("", &fre_clust, &pfs);
 
-  fresult = f_stat (name, &fno);
+  total = (uint32_t)((pfs->n_fatent - 2) * pfs->csize * 0.5);
+  printf("SD card total size: \t%lu\n", total);
+  bufclear();
+  free_space = (uint32_t)(fre_clust * pfs->csize * 0.5);
+  printf("SD card free space: \t%lu\n", free_space);
+  bufclear();
+
+//  char *name = "file_1.txt";
+//
+//  fresult = f_stat(name, &fno);
+//
+//  if (fresult == FR_OK) {
+//	  printf("*%s* already exists!!!!\n",name);
+//  }
+//  else {
+//	  fresult = f_open(&fil, name, FA_CREATE_ALWAYS|FA_READ|FA_WRITE);
+//	  if(fresult != FR_OK) {
+//		  printf ("ERROR: no %d in creating file *%s*\n", fresult, name);
+//	  }
+//	  else {
+//		  printf ("*%s* created successfully\n",name);
+//	  }
+//
+//	  strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
+//
+//	  // I THINK THIS IS THE BUFFER AARON WAS TALKING ABOUT
+//	  fresult = f_write(&fil, buffer, bufsize(buffer), &bw);
+//
+//	  if (fresult != FR_OK) {
+//	  		  printf ("ERROR: unable to write to *%s*\n", name);
+//	  	  }
+//
+//	  fresult = f_close(&fil);
+//
+//	  if (fresult != FR_OK) {
+//		  printf ("ERROR: no %d in closing file *%s*\n", fresult, name);
+//	  }
+//  }
+//
+//  //unmount_sd();
+//  fresult = f_mount(NULL, "/", 1);
+//  if (fresult == FR_OK) {
+//	  printf("SD CARD UNMOUNTED successfully...\n");
+//  }
+//  else {
+//	  printf("error!!! in UNMOUNTING SD CARD\n");
+//  }
+
+
+  char *name = "adc_data.csv";
+
+  fresult = f_stat(name, &fno);
 
   if (fresult == FR_OK) {
 	  printf("*%s* already exists!!!!\n",name);
+	  bufclear();
   }
   else {
 	  fresult = f_open(&fil, name, FA_CREATE_ALWAYS|FA_READ|FA_WRITE);
+  }
 	  if(fresult != FR_OK) {
-		  printf ("error no %d in creating file *%s*\n", fresult, name);
+		  printf ("ERROR: no %d in creating file *%s*\n", fresult, name);
+		  bufclear();
 	  }
 	  else {
 		  printf ("*%s* created successfully\n",name);
+		  bufclear();
 	  }
 
-	  strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
 
-	  // I THINK THIS IS THE BUFFER AARON WAS TALKING ABOUT
-	  fresult = f_write(&fil, buffer, bufsize(buffer), &bw);
-
-	  fresult = f_close(&fil);
-
-	  if (fresult != FR_OK) {
-		  printf ("error no %d in closing file *%s*\n", fresult, name);
-	  }
-  }
-
-  //unmount_sd();
-  fresult = f_mount(NULL, "/", 1);
-  if (fresult == FR_OK) {
-	  printf("SD CARD UNMOUNTED successfully...\n");
-  }
-  else {
-	  printf("error!!! in UNMOUNTING SD CARD\n");
-  }
-
-
-
-  //
-  //	// ********** Using f_write and f_read **********
-  //	// Open file 1
-  //	fresult = f_open(&fil, "file_1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
-  //	// Write to file 1
-  //	strcpy(buffer, "This is file 1 and it says 'Hello from Ethan!'\n");
-  //
-  //	// I THINK THIS IS THE BUFFER AARON WAS TALKING ABOUT
-  //	fresult = f_write(&fil, buffer, bufsize(buffer), &bw);
-  //
-  //	send_uart("file_1.txt created and data is written\n");
-  //	// Close file 1
-  //	f_close(&fil);
 
   /* USER CODE END 2 */
 
@@ -217,13 +306,72 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  // ***************** Testing debugging *****************
-	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-	  count++;
-	  printf("count = %d \n", count);
-	  HAL_Delay(250);
+//	  // ***************** Testing debugging *****************
+//	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+//	  count++;
+//	  printf("count = %d \n", count);
+//	  HAL_Delay(250);
+
+	  // Initialize respective sensor data variables
+	  current_audio = adc_data[0];
+	  current_pressure = adc_data[1];
+	  current_acc = sqrt(pow(adc_data[2], 2) + pow(adc_data[3], 2) + pow(adc_data[4], 2));
+
+	  current_acc_x = adc_data[2];
+	  current_acc_y = adc_data[3];
+	  current_acc_z = adc_data[4];
+
+	  while(dataReady == 0) {
+		  // Do stuff here with one half of ADC while
+		  // other half is being filled?
+		  fresult = f_lseek(&fil, f_size(&fil));
+		  fresult = f_printf(&fil, "ADC channel 0 (audio) = %d\n", current_audio);
+		  fresult = f_sync(&fil);
+
+		  // Increment count
+		  count++;
+	  	  }
+
+	  dataReady = 0;
+
+	  // The current samples will be the "previous" samples for the next samples
+	  previous_audio = current_audio;
+	  previous_pressure = current_pressure;
+	  previous_acc = current_acc;
+
+	  previous_acc_x = current_acc_x;
+	  previous_acc_y = current_acc_y;
+	  previous_acc_z = current_acc_z;
+
+	  // Stop when count is a certain value (leads to unmount SD card)
+	  if(count == 100) {
+		  break;
+	  }
 
   }
+
+  // Stop ADC DMA and disable ADC
+  HAL_ADC_Stop_DMA(&hadc1);
+
+  // Close buffer file
+  f_close(&fil);
+  if (fresult != FR_OK) {
+	  printf ("ERROR: no %d in closing file *%s*\n", fresult, name);
+	  bufclear();
+  }
+
+  // After while loop when break
+  // Unmount SD card
+  fresult = f_mount(NULL, "/", 1);
+  if (fresult == FR_OK) {
+	  printf("SD card unmounted successfully...\n");
+	  bufclear();
+  }
+  else {
+	  printf("ERROR: unmounting SD card\n");
+	  bufclear();
+  }
+
   /* USER CODE END 3 */
 }
 
@@ -304,14 +452,14 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.NbrOfConversion = 5;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
@@ -322,7 +470,43 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_12;
+  sConfig.Rank = 3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_13;
+  sConfig.Rank = 4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = 5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
