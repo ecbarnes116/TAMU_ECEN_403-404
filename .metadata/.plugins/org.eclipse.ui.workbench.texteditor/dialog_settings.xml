@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
-		<item key="selection" value="bw"/>
+		<item key="selection" value="seek"/>
 		<item key="wrap" value="true"/>
 		<item key="casesensitive" value="false"/>
 		<item key="wholeword" value="false"/>
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
-			<item value="bw"/>
-			<item value="f_write"/>
-			<item value="sd_writt"/>
-			<item value="_write"/>
-			<item value="br"/>
-			<item value="br "/>
-			<item value="file_handling"/>
-			<item value="fil"/>
-			<item value="fresult"/>
-			<item value="fresults"/>
-			<item value="fs"/>
-			<item value="f_mount"/>
-			<item value="LD2"/>
-			<item value="GPIO_PIN_5"/>
-			<item value="sdio"/>
+			<item value="seek"/>
+			<item value="explosion"/>
+			<item value="date"/>
+			<item value="data"/>
+			<item value="buffer"/>
+			<item value="adc"/>
+			<item value="NUM_CHANNELS"/>
+			<item value="count"/>
+			<item value="printf"/>
+			<item value="int"/>
+			<item value="created success"/>
+			<item value="gettick"/>
+			<item value="uwTick"/>
+			<item value="uwTick ="/>
+			<item value="get_tick"/>
 		</list>
 		<list key="replacehistory">
 			<item value=""/>
 		</list>
 	</section>
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
-		<item key="DIALOG_X_ORIGIN" value="929"/>
-		<item key="DIALOG_Y_ORIGIN" value="234"/>
+		<item key="DIALOG_X_ORIGIN" value="1287"/>
+		<item key="DIALOG_Y_ORIGIN" value="487"/>
 		<item key="DIALOG_WIDTH" value="511"/>
 		<item key="DIALOG_HEIGHT" value="523"/>
 		<item key="DIALOG_FONT_NAME" value="1|Segoe UI|9.0|0|WINDOWS|1|-18|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI"/>
