@@ -1,9 +1,9 @@
-09:54:53 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
+20:57:30 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
 make -j12 all 
 arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F446xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../FATFS/Target -I../FATFS/App -I../Middlewares/Third_Party/FatFs/src -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
 ../Core/Src/main.c: In function 'main':
-../Core/Src/main.c:297:29: warning: passing argument 2 of 'HAL_ADC_Start_DMA' from incompatible pointer type [-Wincompatible-pointer-types]
-  297 |   HAL_ADC_Start_DMA(&hadc1, (uint16_t*)adc_data, ADC_BUFFER_SIZE);
+../Core/Src/main.c:393:29: warning: passing argument 2 of 'HAL_ADC_Start_DMA' from incompatible pointer type [-Wincompatible-pointer-types]
+  393 |   HAL_ADC_Start_DMA(&hadc1, (uint16_t*)adc_data, ADC_BUFFER_SIZE);
       |                             ^~~~~~~~~~~~~~~~~~~
       |                             |
       |                             uint16_t * {aka short unsigned int *}
@@ -20,22 +20,8 @@ Finished building target: SDIO_F446RE.elf
 arm-none-eabi-size   SDIO_F446RE.elf 
 arm-none-eabi-objdump -h -S  SDIO_F446RE.elf  > "SDIO_F446RE.list"
    text	   data	    bss	    dec	    hex	filename
-  51176	    124	  10580	  61880	   f1b8	SDIO_F446RE.elf
+  44600	    124	  11316	  56040	   dae8	SDIO_F446RE.elf
 Finished building: default.size.stdout
  
 Finished building: SDIO_F446RE.list
- 
-09:54:57 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
-make -j12 all 
-arm-none-eabi-size   SDIO_F446RE.elf 
-   text	   data	    bss	    dec	    hex	filename
-  51176	    124	  10580	  61880	   f1b8	SDIO_F446RE.elf
-Finished building: default.size.stdout
- 
-09:59:11 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
-make -j12 all 
-arm-none-eabi-size   SDIO_F446RE.elf 
-   text	   data	    bss	    dec	    hex	filename
-  51176	    124	  10580	  61880	   f1b8	SDIO_F446RE.elf
-Finished building: default.size.stdout
  

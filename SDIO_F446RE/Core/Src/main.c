@@ -40,7 +40,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 // Number of channels being read by ADC
-#define NUM_CHANNELS 5
+#define NUM_CHANNELS 100
 // Number of samples per channel
 #define NUM_SAMPLES 2
 // Total number of samples across each channel (5*800 = buffer size of 4000 < 4096 maximum)
@@ -203,52 +203,152 @@ void writeSD(const void* buffer) {
 
 
 void processData() {
-//	for(uint8_t i = 0; i < (ADC_BUFFER_SIZE)/2; i++) {
-	if(1) {
-		uint8_t i = 0;
-		// Initialize respective sensor data variables
-		current_audio = fromADC_Ptr[i];
-		current_pressure = fromADC_Ptr[i+1];
-		current_acc = sqrt(pow(fromADC_Ptr[i+2], 2) + pow(fromADC_Ptr[i+3], 2) + pow(fromADC_Ptr[i+4], 2));
+	for(uint8_t i = 0; i < (ADC_BUFFER_SIZE)/2; i++) {
 
-		current_acc_x = fromADC_Ptr[i+2];
-		current_acc_y = fromADC_Ptr[i+3];
-		current_acc_z = fromADC_Ptr[i+4];
+		// IF I DIVISIBLE BY CHANNEL NUMBER, THEN THAT VALUE CORRELATES WITH THE NTH SENSOR
+
+		// THE CODE HERE IS MESSED UP. I AM NOT READING EVERY 5 INPUTS LIKE I WANTED TO.
+		current_audio = fromADC_Ptr[i];
+
+//		current_pressure = fromADC_Ptr[i+1];
+//		current_acc = sqrt(pow(fromADC_Ptr[i+2], 2) + pow(fromADC_Ptr[i+3], 2) + pow(fromADC_Ptr[i+4], 2));
+//
+//		current_acc_x = fromADC_Ptr[i+2];
+//		current_acc_y = fromADC_Ptr[i+3];
+//		current_acc_z = fromADC_Ptr[i+4];
 
 		delta_audio = current_audio - previous_audio;
-		delta_pressure = current_pressure - previous_pressure;
-		delta_acc = current_acc - previous_acc;
+//		delta_pressure = current_pressure - previous_pressure;
+//		delta_acc = current_acc - previous_acc;
 
 		// Do explosion detection here
 		if(delta_audio >= THRESHOLD_AUDIO) {
 			explosionDetected = 1;
 		}
-		else if(delta_pressure >= THRESHOLD_PRESSURE) {
-			explosionDetected = 1;
-		}
-		else if(delta_acc >= THRESHOLD_ACCELERATION) {
-			explosionDetected = 1;
-		}
+//		else if(delta_pressure >= THRESHOLD_PRESSURE) {
+//			explosionDetected = 1;
+//		}
+//		else if(delta_acc >= THRESHOLD_ACCELERATION) {
+//			explosionDetected = 1;
+//		}
+
+//		fresult = f_lseek(&fil, f_size(&fil));
+//		fresult = f_printf(&fil, "%d, %d, %d, %d, %d, d_audio = %d, d_pressure = %d, d_acc = %d\r\n", 0, explosionDetected, current_audio, current_pressure, current_acc, delta_audio, delta_pressure, delta_acc);
+//		fresult = f_sync(&fil);
 
 		fresult = f_lseek(&fil, f_size(&fil));
-		fresult = f_printf(&fil, "%d, %d, %d, %d, %d, d_audio = %d, d_pressure = %d, d_acc = %d\r\n", 0, explosionDetected, current_audio, current_pressure, current_acc, delta_audio, delta_pressure, delta_acc);
+		fresult = f_printf(&fil, "%d, %d, %d, %d, d_audio = %d\r\n", count, i, explosionDetected, current_audio, delta_audio);
 		fresult = f_sync(&fil);
 
+
 		// Logic for determining when to set explosionDetected back to 0
+		// Use Friedlander waveform to estimate how long the explosion will last for
 		explosionDetected = 0;
 
 		// The current samples will be the "previous" samples for the next samples
 		previous_audio = current_audio;
-		previous_pressure = current_pressure;
-		previous_acc = current_acc;
+//		previous_pressure = current_pressure;
+//		previous_acc = current_acc;
+//
+//		previous_acc_x = current_acc_x;
+//		previous_acc_y = current_acc_y;
+//		previous_acc_z = current_acc_z;
 
-		previous_acc_x = current_acc_x;
-		previous_acc_y = current_acc_y;
-		previous_acc_z = current_acc_z;
 	}
+	// Add up a bunch of buffers to shove into a huge buffer than is finally
+	// written to the SD card after the first half of the DMA buffer is filled
 
 	dataReady = 0;
 }
+
+
+
+
+
+
+
+
+void processDataNew() {
+	uint8_t channel = 0;
+
+	for(uint8_t i = 0; i < (ADC_BUFFER_SIZE)/2; i++) {
+
+		// IF I DIVISIBLE BY CHANNEL NUMBER, THEN THAT VALUE CORRELATES WITH THE NTH SENSOR
+
+		// THE CODE HERE IS MESSED UP. I AM NOT READING EVERY 5 INPUTS LIKE I WANTED TO.
+		if	   (i == ((channel * 4) + 0)) {
+			current_audio = fromADC_Ptr[i];
+		}
+//		else if(i == ((channel * 4) + 1)) {
+//			current_pressure = fromADC_Ptr[i];
+//		}
+//		else if(i == ((channel * 4) + 2)) {
+//			current_acc_x = fromADC_Ptr[i];
+//		}
+//		else if(i == ((channel * 4) + 3)) {
+//			current_acc_y = fromADC_Ptr[i];
+//		}
+
+		current_acc = abs(current_acc_x) + abs(current_acc_y);
+
+		delta_audio = current_audio - previous_audio;
+//		delta_pressure = current_pressure - previous_pressure;
+//		delta_acc = current_acc - previous_acc;
+
+		// Do explosion detection here
+		if(delta_audio >= THRESHOLD_AUDIO) {
+			explosionDetected = 1;
+		}
+//		else if(delta_pressure >= THRESHOLD_PRESSURE) {
+//			explosionDetected = 1;
+//		}
+//		else if(delta_acc >= THRESHOLD_ACCELERATION) {
+//			explosionDetected = 1;
+//		}
+
+		// Make arrays for each channel and store the respective value in each array
+
+//		fresult = f_lseek(&fil, f_size(&fil));
+//		fresult = f_printf(&fil, "%d, %d, %d, %d, %d, d_audio = %d, d_pressure = %d, d_acc = %d\r\n", 0, explosionDetected, current_audio, current_pressure, current_acc, delta_audio, delta_pressure, delta_acc);
+//		fresult = f_sync(&fil);
+
+		fresult = f_lseek(&fil, f_size(&fil));
+		fresult = f_printf(&fil, "%d, %d, %d, %d, d_audio = %d\r\n", count, i, explosionDetected, current_audio, delta_audio);
+		fresult = f_sync(&fil);
+
+		// Logic for determining when to set explosionDetected back to 0
+		// Use Friedlander waveform to estimate how long the explosion will last for
+		explosionDetected = 0;
+
+		// The current samples will be the "previous" samples for the next samples
+		previous_audio = current_audio;
+//		previous_pressure = current_pressure;
+//		previous_acc = current_acc;
+//
+//		previous_acc_x = current_acc_x;
+//		previous_acc_y = current_acc_y;
+//		previous_acc_z = current_acc_z;
+
+		if(channel < 3) {
+			channel += 1;
+		}
+		else {
+			channel = 0;
+		}
+	}
+	// Add up a bunch of buffers to shove into a huge buffer than is finally
+	// written to the SD card after the first half of the DMA buffer is filled
+
+	dataReady = 0;
+}
+
+
+
+
+
+
+
+
 
 /* USER CODE END 0 */
 
@@ -359,7 +459,7 @@ int main(void)
 	  	  }
 
 	  // Stop when count is a certain value (leads to unmount SD card)
-	  if(count == 100) {
+	  if(count >= 100) {
 		  break;
 	  }
 
