@@ -39,15 +39,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-// Number of channels being read by ADC
-#define NUM_CHANNELS 100
-// Number of samples per channel
-#define NUM_SAMPLES 2
-// Total number of samples across each channel (5*800 = buffer size of 4000 < 4096 maximum)
-#define ADC_BUFFER_SIZE (NUM_CHANNELS*NUM_SAMPLES)
+// Total number of samples across each channel (4*1000 = buffer size of 4000 < 4096 maximum)
+#define ADC_BUFFER_SIZE 200
 
 #define BUFFER_SIZE 128
 //#define PATH_SIZE 32
+
+#define SD_BUFFER_SIZE 1500
 
 #define THRESHOLD_AUDIO 	   40
 #define THRESHOLD_PRESSURE 	   40
@@ -77,11 +75,19 @@ UART_HandleTypeDef huart2;
 uint16_t adc_data[ADC_BUFFER_SIZE];
 uint16_t SD_data[ADC_BUFFER_SIZE];
 
+uint16_t audio_arr[ADC_BUFFER_SIZE/8];
+uint16_t pressure_arr[ADC_BUFFER_SIZE/8];
+uint16_t acc_arr[ADC_BUFFER_SIZE/8];
+//float acc_arr[ADC_BUFFER_SIZE];
+
 static volatile uint16_t *fromADC_Ptr;
 static volatile uint16_t *toSD_Ptr = &adc_data[0];
 
 char buffer[BUFFER_SIZE];	// Store strings for f_write
 //char path[PATH_SIZE];		// buffer to store path
+
+// Buffer that is written to SD card
+char SD_buffer[SD_BUFFER_SIZE];
 
 volatile uint8_t dataReady;
 
@@ -121,25 +127,26 @@ uint8_t count = 0;
 // for explosions, but still filling the DMA buffer?
 uint8_t explosionDetected = 0;
 
-uint16_t previous_audio;
-uint16_t previous_pressure;
-uint16_t previous_acc;
-
-uint16_t previous_acc_x;
-uint16_t previous_acc_y;
-uint16_t previous_acc_z;
-
 uint16_t current_audio;
 uint16_t current_pressure;
 uint16_t current_acc;
+//float current_acc;
 
 uint16_t current_acc_x;
 uint16_t current_acc_y;
-uint16_t current_acc_z;
+
+uint16_t previous_audio;
+uint16_t previous_pressure;
+uint16_t previous_acc;
+//float previous_acc;
+
+uint16_t previous_acc_x;
+uint16_t previous_acc_y;
 
 uint16_t delta_audio;
 uint16_t delta_pressure;
 uint16_t delta_acc;
+//float delta_acc
 
 int _write(int file, char *ptr, int length) {
 	int i = 0;
@@ -196,7 +203,7 @@ void writeSD(const void* buffer) {
 //	snprintf(buffer, BUFFER_SIZE, "This is a test (count): %d\n", count);
 
 	fresult = f_lseek(&fil, f_size(&fil));
-	fresult = f_write(&fil, buffer, BUFFER_SIZE, &bw);
+	fresult = f_write(&fil, buffer, SD_BUFFER_SIZE, &bw);
 	fresult = f_sync(&fil);
 }
 
@@ -238,7 +245,6 @@ void processData() {
 
 		fresult = f_lseek(&fil, f_size(&fil));
 		fresult = f_printf(&fil, "%d, %d, %d, %d, d_audio = %d\r\n", count, i, explosionDetected, current_audio, delta_audio);
-		fresult = f_sync(&fil);
 
 
 		// Logic for determining when to set explosionDetected back to 0
@@ -252,13 +258,14 @@ void processData() {
 //
 //		previous_acc_x = current_acc_x;
 //		previous_acc_y = current_acc_y;
-//		previous_acc_z = current_acc_z;
 
 	}
 	// Add up a bunch of buffers to shove into a huge buffer than is finally
 	// written to the SD card after the first half of the DMA buffer is filled
-
 	dataReady = 0;
+	// Sync the written data to the SD card
+	// THIS STILL NEEDS TO HAPPEN A LOT LESS OFTEN
+	fresult = f_sync(&fil);
 }
 
 
@@ -273,62 +280,87 @@ void processDataNew() {
 
 	for(uint8_t i = 0; i < (ADC_BUFFER_SIZE)/2; i++) {
 
-		// IF I DIVISIBLE BY CHANNEL NUMBER, THEN THAT VALUE CORRELATES WITH THE NTH SENSOR
-
-		// THE CODE HERE IS MESSED UP. I AM NOT READING EVERY 5 INPUTS LIKE I WANTED TO.
+		// These if statements will allow me to save the readings of the ADC to the
+		// correct sensor variable because each reading is for a different sensor
+		//
+		// Store the new value read into its respective array
+		// audio_arr 	= [0, 30, 56, 70, 56, 30, 0]
+		// pressure_arr = [0, 30, 56, 70, 56, 30, 0]
+		//
+		// index 0 of audio_arr corresponds with the same reading for pressure_arr
 		if	   (i == ((channel * 4) + 0)) {
 			current_audio = fromADC_Ptr[i];
+
+			// audio_arr[i] = current_audio;
+
+			// Get time here (first reading will count as the time the sample was read)
+			// Write this value to the temp string when current_audio is written
 		}
-//		else if(i == ((channel * 4) + 1)) {
-//			current_pressure = fromADC_Ptr[i];
-//		}
-//		else if(i == ((channel * 4) + 2)) {
-//			current_acc_x = fromADC_Ptr[i];
-//		}
-//		else if(i == ((channel * 4) + 3)) {
-//			current_acc_y = fromADC_Ptr[i];
-//		}
+		else if(i == ((channel * 4) + 1)) {
+			current_pressure = fromADC_Ptr[i];
 
-		current_acc = abs(current_acc_x) + abs(current_acc_y);
+			// pressure_arr[i] = current_pressure;
 
-		delta_audio = current_audio - previous_audio;
-//		delta_pressure = current_pressure - previous_pressure;
-//		delta_acc = current_acc - previous_acc;
-
-		// Do explosion detection here
-		if(delta_audio >= THRESHOLD_AUDIO) {
-			explosionDetected = 1;
 		}
-//		else if(delta_pressure >= THRESHOLD_PRESSURE) {
-//			explosionDetected = 1;
-//		}
-//		else if(delta_acc >= THRESHOLD_ACCELERATION) {
-//			explosionDetected = 1;
-//		}
+		else if(i == ((channel * 4) + 2)) {
+			current_acc_x = fromADC_Ptr[i];
+		}
+		else if(i == ((channel * 4) + 3)) {
+			current_acc_y = fromADC_Ptr[i];
 
-		// Make arrays for each channel and store the respective value in each array
+			// current_acc = abs(current_acc_x) + abs(current_acc_y);
+			current_acc = current_acc_x;
+			// acc_arr[i] = current_acc;
+		}
+
+		// USE MAGNITUDE
+		// Don't take sqroot of int lol, assign to float
+//		current_acc = abs(current_acc_x) + abs(current_acc_y);
+		current_acc = current_acc_x;
+
+		if((i % 4) == 0) {
+			// Only want to get deltas every 4 reading since all values
+			// only update after 4 readings (4 values, one per reading)
+			delta_audio = current_audio - previous_audio;
+			delta_pressure = current_pressure - previous_pressure;
+			delta_acc = current_acc - previous_acc;
+
+			// Do explosion detection here
+			if(delta_audio >= THRESHOLD_AUDIO) {
+				explosionDetected = 1;
+			}
+			else if(delta_pressure >= THRESHOLD_PRESSURE) {
+				explosionDetected = 1;
+			}
+			else if(delta_acc >= THRESHOLD_ACCELERATION) {
+				explosionDetected = 1;
+			}
+
+			// Add up a bunch of buffers to shove into a huge buffer that is finally
+			// written to the SD card after each half of the DMA buffer is filled
+
+			// Create sample string here with time
+			// DO THE STRING HERE
+
+			// The current samples will be the "previous" samples for the next samples
+			// These are placed in this loop for the same reason that the deltas are placed here
+			previous_audio = current_audio;
+			previous_pressure = current_pressure;
+			previous_acc = current_acc;
+
+			previous_acc_x = current_acc_x;
+			previous_acc_y = current_acc_y;
+		}
+
 
 //		fresult = f_lseek(&fil, f_size(&fil));
-//		fresult = f_printf(&fil, "%d, %d, %d, %d, %d, d_audio = %d, d_pressure = %d, d_acc = %d\r\n", 0, explosionDetected, current_audio, current_pressure, current_acc, delta_audio, delta_pressure, delta_acc);
+//		fresult = f_printf(&fil, "%d, %d, %d, %d, d_audio = %d\r\n", count, i, explosionDetected, current_audio, delta_audio);
 //		fresult = f_sync(&fil);
 
-		fresult = f_lseek(&fil, f_size(&fil));
-		fresult = f_printf(&fil, "%d, %d, %d, %d, d_audio = %d\r\n", count, i, explosionDetected, current_audio, delta_audio);
-		fresult = f_sync(&fil);
-
-		// Logic for determining when to set explosionDetected back to 0
 		// Use Friedlander waveform to estimate how long the explosion will last for
 		explosionDetected = 0;
 
-		// The current samples will be the "previous" samples for the next samples
-		previous_audio = current_audio;
-//		previous_pressure = current_pressure;
-//		previous_acc = current_acc;
-//
-//		previous_acc_x = current_acc_x;
-//		previous_acc_y = current_acc_y;
-//		previous_acc_z = current_acc_z;
-
+		// Increment channel counter to read from next channel
 		if(channel < 3) {
 			channel += 1;
 		}
@@ -336,8 +368,8 @@ void processDataNew() {
 			channel = 0;
 		}
 	}
-	// Add up a bunch of buffers to shove into a huge buffer than is finally
-	// written to the SD card after the first half of the DMA buffer is filled
+	// Finally write huge buffer to SD card here by calling writeSD and passing buffer
+//	writeSD(SDbuffer);
 
 	dataReady = 0;
 }
@@ -417,7 +449,7 @@ int main(void)
   fresult = f_stat(name, &fno);
 
   if (fresult == FR_OK) {
-	  printf("*%s* already exists!!!!\n",name);
+	  printf("*%s* already exists!!!\n",name);
 	  bufclear();
   }
   else {
@@ -579,7 +611,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 5;
+  hadc1.Init.NbrOfConversion = 4;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -619,15 +651,6 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_13;
   sConfig.Rank = 4;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_4;
-  sConfig.Rank = 5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
