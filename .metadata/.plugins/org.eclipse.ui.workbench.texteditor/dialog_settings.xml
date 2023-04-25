@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
-		<item key="selection" value="SD_buffer"/>
+		<item key="selection" value="uint16"/>
 		<item key="wrap" value="true"/>
 		<item key="casesensitive" value="false"/>
 		<item key="wholeword" value="false"/>
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
+			<item value="uint16"/>
+			<item value="sd_buffer_size"/>
 			<item value="sd_buffer"/>
 			<item value="acc_arr"/>
 			<item value="audio"/>
@@ -21,8 +23,6 @@
 			<item value="sprintf"/>
 			<item value="snprintf"/>
 			<item value="init"/>
-			<item value="rtc"/>
-			<item value="explosion"/>
 		</list>
 		<list key="replacehistory">
 			<item value=""/>
