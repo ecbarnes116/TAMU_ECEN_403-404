@@ -45,7 +45,7 @@
 #define BUFFER_SIZE 128
 //#define PATH_SIZE 32
 
-#define SD_BUFFER_SIZE 1500
+#define SD_BUFFER_SIZE 2000
 
 #define THRESHOLD_AUDIO 	   40
 #define THRESHOLD_PRESSURE 	   40
@@ -79,6 +79,8 @@ uint16_t audio_arr[ADC_BUFFER_SIZE/8];
 uint16_t pressure_arr[ADC_BUFFER_SIZE/8];
 uint16_t acc_arr[ADC_BUFFER_SIZE/8];
 //float acc_arr[ADC_BUFFER_SIZE];
+
+// data_type??? time_arr[ADC_BUFFER_SIZE/8];
 
 static volatile uint16_t *fromADC_Ptr;
 static volatile uint16_t *toSD_Ptr = &adc_data[0];
@@ -172,6 +174,12 @@ void bufclear(void) {
 	}
 }
 
+void SDbufclear(void) {
+	for(int i = 0; i < SD_BUFFER_SIZE; i++){
+		SD_buffer[i] = '\0';
+	}
+}
+
 // Size of buffer needs to be a multiple of number of ADC channels (minimum of 5)
 // Needs to be divisible by the number of bytes in each line
 // that I am writing to the SD card				<-- What did I mean by this???
@@ -197,13 +205,16 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 
 
 void writeSD(const void* buffer) {
-//	fresult = f_lseek(&fil, f_size(&fil));
-//	fresult = f_printf(&fil, "ADC channel 0 (audio) = %d\n", current_audio);
-
-//	snprintf(buffer, BUFFER_SIZE, "This is a test (count): %d\n", count);
-
+	// Moves the file read/write pointer to the end of the file
 	fresult = f_lseek(&fil, f_size(&fil));
+
+	// Write the buffer (data worth half of DMA buffer) to the file
 	fresult = f_write(&fil, buffer, SD_BUFFER_SIZE, &bw);
+
+	// f_sync flushes the cached information of a writing file
+	//
+	// Performs the same process as f_close function but the file is left opened
+	// and can continue read/write/seek operations to the file
 	fresult = f_sync(&fil);
 }
 
@@ -278,6 +289,12 @@ void processData() {
 void processDataNew() {
 	uint8_t channel = 0;
 
+	// Keeps track of the "global sample" (i.e, every 4 ADC readings)
+	uint8_t sample_index = 0;
+
+//	snprintf(SD_buffer, SD_BUFFER_SIZE, "%s", "\r\n");
+	snprintf(SD_buffer, SD_BUFFER_SIZE, "%s", "\0"); // Empty char (null char)
+
 	for(uint8_t i = 0; i < (ADC_BUFFER_SIZE)/2; i++) {
 
 		// These if statements will allow me to save the readings of the ADC to the
@@ -291,15 +308,17 @@ void processDataNew() {
 		if	   (i == ((channel * 4) + 0)) {
 			current_audio = fromADC_Ptr[i];
 
-			// audio_arr[i] = current_audio;
+			audio_arr[sample_index] = current_audio;
 
 			// Get time here (first reading will count as the time the sample was read)
 			// Write this value to the temp string when current_audio is written
+
+			// time_arr[sample_index] = some_function_to_get_time_in_micro_seconds()
 		}
 		else if(i == ((channel * 4) + 1)) {
 			current_pressure = fromADC_Ptr[i];
 
-			// pressure_arr[i] = current_pressure;
+			pressure_arr[sample_index] = current_pressure;
 
 		}
 		else if(i == ((channel * 4) + 2)) {
@@ -310,7 +329,7 @@ void processDataNew() {
 
 			// current_acc = abs(current_acc_x) + abs(current_acc_y);
 			current_acc = current_acc_x;
-			// acc_arr[i] = current_acc;
+			acc_arr[sample_index] = current_acc;
 		}
 
 		// USE MAGNITUDE
@@ -318,12 +337,30 @@ void processDataNew() {
 //		current_acc = abs(current_acc_x) + abs(current_acc_y);
 		current_acc = current_acc_x;
 
-		if((i % 4) == 0) {
-			// Only want to get deltas every 4 reading since all values
-			// only update after 4 readings (4 values, one per reading)
-			delta_audio = current_audio - previous_audio;
-			delta_pressure = current_pressure - previous_pressure;
-			delta_acc = current_acc - previous_acc;
+		// Treat every 4th reading like one reading
+		if((i % 4) == 3) {
+			printf("%d\n", sample_index);
+
+			// Only want to get deltas every 4 reading  on the 4th reading because
+			// all values only update after 4 readings (4 values, one per reading)
+			if(current_audio > previous_audio) {
+				delta_audio = current_audio - previous_audio;
+			}
+			else {
+				delta_audio = 0;
+			}
+			if(current_pressure > previous_pressure) {
+				delta_pressure = current_pressure - previous_pressure;
+			}
+			else {
+				delta_pressure = 0;
+			}
+			if(current_acc > previous_acc) {
+				delta_acc = current_acc - previous_acc;
+			}
+			else {
+				delta_acc = 0;
+			}
 
 			// Do explosion detection here
 			if(delta_audio >= THRESHOLD_AUDIO) {
@@ -342,6 +379,18 @@ void processDataNew() {
 			// Create sample string here with time
 			// DO THE STRING HERE
 
+		    /* append new string using length of previously added string */
+			snprintf(SD_buffer + strlen(SD_buffer), SD_BUFFER_SIZE - strlen(SD_buffer), "%d, %d, %d, %d, d_audio = %d, %s\r\n", count, i, explosionDetected, current_audio, delta_audio, "yo");
+
+//			snprintf(dest, LOC_MAXLEN, "%s%s", "abc", "def");
+//			snprintf(dest + strlen(dest), LOC_MAXLEN - strlen(dest), "%s", "ghi");
+
+//			snprintf(sample_buffer, sample_buffer_size, "%d, %d, %d, %d, d_audio = %d\r\n", count, i, explosionDetected, current_audio, delta_audio);
+//		    snprintf(SD_buffer + strlen(SD_buffer), SD_BUFFER_SIZE - strlen(SD_BUFFER), "%s", sample_buffer);
+
+			// snprintf(SD_buffer, SD_buffer_size, "%s, %s, %s, %s, %s", time_buff, explosion_buff, audio_buff, pressure_buff, acc_buff);
+			// snprintf(sample_buffer, sample_buffer_size, "%d, %d, %d, %d, d_audio = %d\r\n", count, i, explosionDetected, current_audio, delta_audio);
+
 			// The current samples will be the "previous" samples for the next samples
 			// These are placed in this loop for the same reason that the deltas are placed here
 			previous_audio = current_audio;
@@ -350,6 +399,8 @@ void processDataNew() {
 
 			previous_acc_x = current_acc_x;
 			previous_acc_y = current_acc_y;
+
+			sample_index += 1;
 		}
 
 
@@ -357,7 +408,8 @@ void processDataNew() {
 //		fresult = f_printf(&fil, "%d, %d, %d, %d, d_audio = %d\r\n", count, i, explosionDetected, current_audio, delta_audio);
 //		fresult = f_sync(&fil);
 
-		// Use Friedlander waveform to estimate how long the explosion will last for
+		// Use Friedlander waveform to estimate how long the explosion will last for,
+		// then set flag to 0 when time reaches that value
 		explosionDetected = 0;
 
 		// Increment channel counter to read from next channel
@@ -368,8 +420,10 @@ void processDataNew() {
 			channel = 0;
 		}
 	}
-	// Finally write huge buffer to SD card here by calling writeSD and passing buffer
-//	writeSD(SDbuffer);
+	// Finally, write huge buffer to SD card
+	writeSD(SD_buffer);
+	// Clear SD_buffer so new data can be written (next half of DMA buffer)
+	SDbufclear();
 
 	dataReady = 0;
 }
@@ -483,7 +537,7 @@ int main(void)
 
 	  if(dataReady) {
 
-		  processData();
+		  processDataNew();
 
 		  // Increment count
 		  count++;

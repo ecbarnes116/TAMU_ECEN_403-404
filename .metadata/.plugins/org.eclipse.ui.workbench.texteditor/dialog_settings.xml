@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
-		<item key="selection" value="snprintf"/>
+		<item key="selection" value="SD_buffer"/>
 		<item key="wrap" value="true"/>
 		<item key="casesensitive" value="false"/>
 		<item key="wholeword" value="false"/>
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
-			<item value="snprintf"/>
+			<item value="sd_buffer"/>
+			<item value="acc_arr"/>
+			<item value="audio"/>
+			<item value="buffer"/>
+			<item value="buffer_size"/>
 			<item value="f_printf"/>
+			<item value="count"/>
+			<item value="ADC_BUFFER_SIZE"/>
+			<item value="acc"/>
+			<item value="NUM_CHANNELS"/>
+			<item value="sprintf"/>
+			<item value="snprintf"/>
 			<item value="init"/>
 			<item value="rtc"/>
 			<item value="explosion"/>
-			<item value="seek"/>
-			<item value="date"/>
-			<item value="data"/>
-			<item value="buffer"/>
-			<item value="adc"/>
-			<item value="NUM_CHANNELS"/>
-			<item value="count"/>
-			<item value="printf"/>
-			<item value="int"/>
-			<item value="created success"/>
 		</list>
 		<list key="replacehistory">
 			<item value=""/>
 		</list>
 	</section>
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
-		<item key="DIALOG_X_ORIGIN" value="1287"/>
-		<item key="DIALOG_Y_ORIGIN" value="487"/>
+		<item key="DIALOG_X_ORIGIN" value="1317"/>
+		<item key="DIALOG_Y_ORIGIN" value="491"/>
 		<item key="DIALOG_WIDTH" value="511"/>
 		<item key="DIALOG_HEIGHT" value="523"/>
 		<item key="DIALOG_FONT_NAME" value="1|Segoe UI|9.0|0|WINDOWS|1|-18|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI"/>
