@@ -40,7 +40,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 // Total number of samples across each channel (4*1000 = buffer size of 4000 < 4096 maximum)
-#define ADC_BUFFER_SIZE 200
+#define ADC_BUFFER_SIZE 400
 
 #define BUFFER_SIZE 128
 //#define PATH_SIZE 32
@@ -112,7 +112,7 @@ static void MX_RTC_Init(void);
 
 // These are already defined in file_handling.c
 FATFS fs; // file system
-FIL fil; // file (this needs to be changed)
+FIL fil; // file
 FILINFO fno;		// ???
 FRESULT fresult;
 UINT br, bw;
@@ -120,14 +120,15 @@ FATFS *pfs;
 DWORD fre_clust;
 uint32_t total, free_space;
 
-uint8_t count = 0;
+// Controls amount of data written to buffer fileeee
+uint8_t cluster = 0;
+// Keeps track of number of files saved out with useful data
+uint16_t batch = 0;
 
-// What should I initialize these values to?
-// I could just not initialize them to a value, but then
-// use a HAL delay once the program starts so there is an
-// extremely quick (1 ms) grace period where it isn't checking
-// for explosions, but still filling the DMA buffer?
+// 1 if an explosion was detected between two samples
 uint8_t explosionDetected = 0;
+// 1 if there was an explosion detected for an entire batch
+uint8_t SAVE_BUFFER_FILE = 0;
 
 uint16_t current_audio;
 uint16_t current_pressure;
@@ -202,6 +203,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
 
 
 
+
+
 void writeSD(const void* buffer, uint16_t len) {
 //	printf("length of SD buffer string = %d\r\n", len);
 
@@ -224,6 +227,7 @@ void writeSD(const void* buffer, uint16_t len) {
 
 
 
+
 void processData() {
 	uint8_t channel = 0;
 	uint16_t write_len = 0;
@@ -231,7 +235,6 @@ void processData() {
 	// Keeps track of the "global sample" (i.e, every 4 ADC readings)
 	uint8_t sample_index = 0;
 
-//	snprintf(SD_buffer, SD_BUFFER_SIZE, "%s", "\r\n");
 	snprintf(SD_buffer, SD_BUFFER_SIZE, "%s", "\0"); // Empty char (null char)
 
 	for(uint8_t i = 0; i < (ADC_BUFFER_SIZE)/2; i++) {
@@ -280,44 +283,46 @@ void processData() {
 		if((i % 4) == 3) {
 //			printf("%d\n", sample_index);
 
-			// Only want to get deltas every 4 reading  on the 4th reading because
-			// all values only update after 4 readings (4 values, one per reading)
-			if(current_audio > previous_audio) {
-				delta_audio = current_audio - previous_audio;
-			}
-			else {
-				delta_audio = 0;
-			}
-			if(current_pressure > previous_pressure) {
-				delta_pressure = current_pressure - previous_pressure;
-			}
-			else {
-				delta_pressure = 0;
-			}
-			if(current_acc > previous_acc) {
-				delta_acc = current_acc - previous_acc;
-			}
-			else {
-				delta_acc = 0;
+			// Only want to get deltas every 4 readings on the 4th reading because all values
+			// only update after 4 total readings from the ADC (4 values, one per reading)
+			//
+			// Do not check for first 4 ADC readings (cannot check for data that doesn't exist)
+			if(i > 3) {
+				if(current_audio > previous_audio) {
+					delta_audio = current_audio - previous_audio;
+				}
+				else {
+					delta_audio = 0;
+				}
+				if(current_pressure > previous_pressure) {
+					delta_pressure = current_pressure - previous_pressure;
+				}
+				else {
+					delta_pressure = 0;
+				}
+				if(current_acc > previous_acc) {
+					delta_acc = current_acc - previous_acc;
+				}
+				else {
+					delta_acc = 0;
+				}
 			}
 
 			// One day this needs to become a function call to a more robust algorithm
 			// Do explosion detection here
-			if(delta_audio >= THRESHOLD_AUDIO) {
-				explosionDetected = 1;
-			}
-			else if(delta_pressure >= THRESHOLD_PRESSURE) {
-				explosionDetected = 1;
-			}
-			else if(delta_acc >= THRESHOLD_ACCELERATION) {
-				explosionDetected = 1;
+			if((delta_audio >= THRESHOLD_AUDIO) || (delta_pressure >= THRESHOLD_PRESSURE) || (delta_acc >= THRESHOLD_ACCELERATION)) {
+				// Do not check for first 4 ADC readings (cannot check for data that doesn't exist)
+				if(i > 3) {
+					explosionDetected = 1;
+					SAVE_BUFFER_FILE = 1;
+				}
 			}
 
 		    // Append new string using length of previously added string
 			snprintf(SD_buffer + strlen(SD_buffer),
 					SD_BUFFER_SIZE - strlen(SD_buffer),
-					"%d, %d, %d, %d, %d, d = %d\r\n",
-					count, explosionDetected, current_audio, current_pressure, current_acc, delta_audio
+					"%d,%d,%d,%d,%d,d = %d\r\n",
+					cluster, explosionDetected, current_audio, current_pressure, current_acc, delta_audio
 					);
 
 			// The current samples will be the "previous" samples for the next samples
@@ -332,9 +337,8 @@ void processData() {
 			sample_index++;
 		}
 
-
 //		fresult = f_lseek(&fil, f_size(&fil));
-//		fresult = f_printf(&fil, "%d, %d, %d, %d, d_audio = %d\r\n", count, i, explosionDetected, current_audio, delta_audio);
+//		fresult = f_printf(&fil, "%d, %d, %d, %d, d_audio = %d\r\n", cluster, i, explosionDetected, current_audio, delta_audio);
 //		fresult = f_sync(&fil);
 
 		// Use Friedlander waveform to estimate how long the explosion will last for,
@@ -363,6 +367,45 @@ void processData() {
 
 
 
+
+void saveBufferFile() {
+	char file_name[20];
+
+	// Do something here
+	fresult = f_close(&fil);
+
+	snprintf(file_name, strlen(file_name), "batch_%d.csv", batch);
+
+	f_rename("adc_data.csv", file_name);
+}
+
+
+
+
+
+void setupBufferFile() {
+	char *name = "adc_data.csv";
+
+	fresult = f_stat(name, &fno);
+
+	if (fresult == FR_OK) {
+	  printf("*%s* already exists!!!\n",name);
+	  bufclear();
+	}
+	else {
+	  fresult = f_open(&fil, name, FA_CREATE_ALWAYS|FA_READ|FA_WRITE);
+	}
+	  if(fresult != FR_OK) {
+		  printf ("ERROR: no %d in creating file *%s*\n", fresult, name);
+		  bufclear();
+	  }
+	  else {
+		  printf ("*%s* created successfully\n",name);
+		  bufclear();
+	  }
+
+	fresult = f_printf(&fil, "time,explosion,audio,pressure,acceleration,delta_audio\r\n");
+}
 
 
 
@@ -407,7 +450,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   // Start DMA buffer
-  // Might need to stop DMA at some point
   HAL_ADC_Start_DMA(&hadc1, (uint16_t*)adc_data, ADC_BUFFER_SIZE);
 
   // Mount SD card
@@ -430,6 +472,8 @@ int main(void)
 //  printf("SD card free space: \t%lu\n", free_space);
 //  bufclear();
 
+  // Turn this setup process into a function
+
   char *name = "adc_data.csv";
 
   fresult = f_stat(name, &fno);
@@ -450,7 +494,7 @@ int main(void)
 		  bufclear();
 	  }
 
-  fresult = f_printf(&fil, "time, explosion, audio, pressure, acceleration, delta_audio\r\n");
+  fresult = f_printf(&fil, "time,explosion,audio,pressure,acceleration,delta_audio\r\n");
 
   // Get starting tick value (start timer)
   int start = HAL_GetTick();
@@ -471,21 +515,37 @@ int main(void)
 
 		  processData();
 
-		  // Increment count
-		  count++;
+		  // Increment cluster count
+		  cluster++;
 
 	  	  }
 
-	  // Stop when count is a certain value (leads to unmount SD card)
-	  if(count >= 100) {
+	  if(cluster >= 100) {
+		  batch++;
 		  break;
 	  }
+
+
+//	  // Stop when cluster is a certain value (leads to unmount SD card)
+//	  if((cluster >= 100) && SAVE_BUFFER_FILE) {
+//		  saveBufferFile();
+//		  setupBufferFile();
+
+//		  SAVE_BUFFER_FILE = 0;
+
+//		  batch++;
+//	  }
+//
+//	  if(batch >= 1) {
+//		  break;
+//	  }
 
   }
 
   int stop = HAL_GetTick();
 
-  printf("Total time to write %d values to SD card (WITH printf): %d ms\n", count, (stop - start));
+  printf("Total time to write %d samples to SD card (WITH printf): %d ms\n", (ADC_BUFFER_SIZE/8)*cluster*batch, (stop - start));
+//  printf("Samples per second: %f\n", 1.0*(ADC_BUFFER_SIZE/8)*cluster*batch/(stop - start));
 
   // Stop ADC DMA and disable ADC
   HAL_ADC_Stop_DMA(&hadc1);
