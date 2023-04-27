@@ -40,13 +40,15 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 // Total number of samples across each channel (4*1000 = buffer size of 4000 < 4096 maximum)
+// Currently (4*100 = buffer size of 400)
 #define ADC_BUFFER_SIZE 400
-// Used to be 400
 
 #define BUFFER_SIZE 128
 //#define PATH_SIZE 32
 
-#define SD_BUFFER_SIZE 2000
+// Char buffer to be written to SD card
+// Every sample is appended to this buffer
+#define SD_BUFFER_SIZE 2500
 
 #define THRESHOLD_AUDIO 	   40
 #define THRESHOLD_PRESSURE 	   40
@@ -55,15 +57,15 @@
 #define CLUSTER_SIZE 200
 
 // Internal reference voltage for STM32F446RE (mV)
-#define REFERENCE_VOLTAGE_CONVERSION 100/1200
+#define REFERENCE_VOLTAGE_CONVERSION 1000.0/1200.0
 // Reference sensitivity for microphone (mV)
-#define AUDIO_REFERENCE 1.0
+#define AUDIO_REFERENCE 1.00
 // Reference sensitivity for pressure sensor (mV)
 #define PRESSURE_REFERENCE 14.62
 // Pref is the reference pressure in air, which is 20x10-6 Pa
 #define P_REF 0.00002
 // Reference sensitivity for accelerometer x-axis (mV)
-#define ACC_REFERENCE_X 50.0
+#define ACC_REFERENCE_X 50.00
 // Reference sensitivity for accelerometer y-axis (mV)
 #define ACC_REFERENCE_Y 48.97
 
@@ -150,26 +152,23 @@ uint8_t SAVE_BUFFER_FILE = 0;
 int saveBufferStart;
 int saveBufferStop;
 
-uint16_t current_audio;
+float current_audio;
 float current_pressure;
-uint16_t current_acc;
-//float current_acc;
+float current_acc;
 
-uint16_t current_acc_x;
-uint16_t current_acc_y;
+float current_acc_x;
+float current_acc_y;
 
-uint16_t previous_audio;
+float previous_audio;
 float previous_pressure;
-uint16_t previous_acc;
-//float previous_acc;
+float previous_acc;
 
-uint16_t previous_acc_x;
-uint16_t previous_acc_y;
+float previous_acc_x;
+float previous_acc_y;
 
-uint16_t delta_audio;
+float delta_audio;
 float delta_pressure;
-uint16_t delta_acc;
-//float delta_acc
+float delta_acc;
 
 int _write(int file, char *ptr, int length) {
 	int i = 0;
@@ -284,7 +283,7 @@ void processData() {
 			current_audio = (current_audio * REFERENCE_VOLTAGE_CONVERSION) / AUDIO_REFERENCE;
 			current_audio = 20 * log10(current_audio/P_REF);
 
-			audio_arr[sample_index] = current_audio;
+//			audio_arr[sample_index] = current_audio;
 
 			// Get time here (first reading will count as the time the sample was read)
 			// Write this value to the temp string when current_audio is written
@@ -304,7 +303,7 @@ void processData() {
 			current_pressure = fromADC_Ptr[i];
 			current_pressure = (current_pressure * REFERENCE_VOLTAGE_CONVERSION) / PRESSURE_REFERENCE;
 
-			pressure_arr[sample_index] = current_pressure;
+//			pressure_arr[sample_index] = current_pressure;
 
 		}
 		else if((i % 4) == 2) {
@@ -316,8 +315,8 @@ void processData() {
 			// V = value * voltage_conversion (mV)
 			// a = V/50.00 (mV*(g/mV))
 			// a = (value*voltage_convsersion)/50.00 (g)
-			ccurrent_acc_x = fromADC_Ptr[i];
-			ccurrent_acc_x = (ccurrent_acc_x * REFERENCE_VOLTAGE_CONVERSION) / ACC_REFERENCE_X;
+			current_acc_x = fromADC_Ptr[i];
+			current_acc_x = (current_acc_x * REFERENCE_VOLTAGE_CONVERSION) / ACC_REFERENCE_X;
 		}
 		else if((i % 4) == 3) {
 			// Convert raw sensor value to g
@@ -331,15 +330,11 @@ void processData() {
 			current_acc_y = fromADC_Ptr[i];
 			current_acc_y = (current_acc_y * REFERENCE_VOLTAGE_CONVERSION) / ACC_REFERENCE_Y;
 
-			current_acc = abs(current_acc_x) + abs(current_acc_y);
+			// Get magnitude of acceleration in x and y axes
+			current_acc = sqrt((current_acc_x*current_acc_x) + (current_acc_y*current_acc_y));
 //			current_acc = current_acc_x;
-			acc_arr[sample_index] = current_acc;
+//			acc_arr[sample_index] = current_acc;
 		}
-
-		// USE MAGNITUDE
-		// Don't take sqroot of int, assign to float
-		// current_acc = abs(current_acc_x) + abs(current_acc_y);
-		current_acc = current_acc_x;
 
 		// Treat every 4th reading like one reading
 		if((i % 4) == 3) {
@@ -371,8 +366,6 @@ void processData() {
 				SAVE_BUFFER_FILE = 1;
 			}
 
-			// FIXME: Sometimes doesn't work
-			//
 			// Edge case for very first ADC sample (first 4 readings) where previous information does not exist
 			if((i <= 3) && (dmaFull == 0) && (cluster == 0) && (batch == 0)) {
 				delta_audio = 0;
@@ -383,10 +376,11 @@ void processData() {
 				SAVE_BUFFER_FILE = 0;
 			}
 
+			// FIXME: Figure out how to explain this
 		    // Append new string using length of previously added string
 			snprintf(SD_buffer + strlen(SD_buffer),
 					SD_BUFFER_SIZE - strlen(SD_buffer),
-					"%d,%d,%d,%d,%2.f,%d,d = %d\r\n",
+					"%d,%d,%d,%.3f,%.3f,%.3f,d = %.3f\r\n",
 					batch, cluster, explosionDetected, current_audio, current_pressure, current_acc, delta_audio);
 
 			// The current samples will be the "previous" samples for the next samples
@@ -434,7 +428,7 @@ void saveBufferFile() {
 	// Do something here
 	fresult = f_close(&fil);
 
-	// FIXME: This is janky, please fix lol
+	// FIXME: This is
 	// need to have variable length string for file name (depends on batch #)
 	snprintf(file_name, BUFFER_SIZE, "BATCH_%d.csv", batch);
 	snprintf(file_name, strlen(file_name)+1, "BATCH_%d.csv", batch);
@@ -453,6 +447,13 @@ void saveBufferFile() {
 void overwriteBufferFile() {
 	// Do this if the buffer file does not need to be saved
 	// Begin writing over current buffer file (skipping the column names)
+
+
+
+	// Moves the file read/write pointer to the beginning of the 2nd line
+//	fresult = f_lseek(&fil, f_size(&fil));
+//	fresult = f_lseek(&fil, strlen(column_names));
+
 }
 
 
@@ -499,6 +500,9 @@ void setupBufferFile() {
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+
+	// Make sure conversion value is correct
+//	printf("REFERENCE_VOLTAGE_CONVERSION: %.3f\r\n", REFERENCE_VOLTAGE_CONVERSION);
 
   /* USER CODE END 1 */
 
@@ -554,6 +558,7 @@ int main(void)
   // Turn this setup process into a function
 
   char *name = "adc_data.csv";
+  char *column_names = "batch,time,explosion,audio,pressure,acceleration,delta_audio\r\n";
 
   fresult = f_stat(name, &fno);
 
@@ -600,7 +605,8 @@ int main(void)
 	  	  }
 
 	  // Stop when cluster is a certain value (leads to unmount SD card)
-	  if((cluster >= CLUSTER_SIZE) && SAVE_BUFFER_FILE) {
+//	  if((cluster >= CLUSTER_SIZE) && SAVE_BUFFER_FILE) {
+	  if(cluster >= CLUSTER_SIZE) {
 		  saveBufferStart = HAL_GetTick();
 		  saveBufferFile();
 		  setupBufferFile();
@@ -613,11 +619,11 @@ int main(void)
 
 		  batch++;
 	  }
-	  else {
-		  // Do this if the buffer file does not need to be saved
-		  // Begin writing over current buffer file (skipping the column names)
-		  // overwriteBufferFile();
-	  }
+//	  else {
+//		  // Do this if the buffer file does not need to be saved
+//		  // Begin writing over current buffer file (skipping the column names)
+//		  // overwriteBufferFile();
+//	  }
 
 	  // This will eventually turn into an external interrupt from the user
 	  // pressing a button
@@ -630,7 +636,7 @@ int main(void)
   int stop = HAL_GetTick();
 
   printf("Total time to write %d samples to SD card (WITH printf): %d ms\n", (ADC_BUFFER_SIZE/8)*CLUSTER_SIZE*batch, (stop - start));
-//  printf("Samples per second: %f\n", 1.0*(ADC_BUFFER_SIZE/8)*CLUSTER_SIZE*batch/(stop - start));
+  printf("Samples per second: %.3f\n", 1.0*(ADC_BUFFER_SIZE/8)*CLUSTER_SIZE*batch/(stop - start));
 
   // Stop ADC DMA and disable ADC
   HAL_ADC_Stop_DMA(&hadc1);

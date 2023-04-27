@@ -1,10 +1,10 @@
-22:04:15 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
+16:39:58 **** Incremental Build of configuration Debug for project SDIO_F446RE ****
 make -j12 all 
 arm-none-eabi-size   SDIO_F446RE.elf 
    text	   data	    bss	    dec	    hex	filename
-  57664	    484	  13660	  71808	  11880	SDIO_F446RE.elf
+  60172	    484	  13876	  74532	  12324	SDIO_F446RE.elf
 Finished building: default.size.stdout
  
 
-22:04:16 Build Finished. 0 errors, 0 warnings. (took 221ms)
+16:39:58 Build Finished. 0 errors, 0 warnings. (took 225ms)
 
