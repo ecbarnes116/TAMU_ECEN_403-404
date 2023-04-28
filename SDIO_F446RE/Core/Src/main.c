@@ -50,15 +50,21 @@
 // Every sample is appended to this buffer
 #define SD_BUFFER_SIZE 2500
 
+// Threshold values to detect explosion
 #define THRESHOLD_AUDIO 	   40
 #define THRESHOLD_PRESSURE 	   40
 #define THRESHOLD_ACCELERATION 40
 
+// Multiple of number of samples read from ADC
+// Num of samples written to file before saving = CLUSTER_SIZE * ADC_BUFFER_SIZE/(num_sensors*2)
+// 10,000 = 200 * (400/8)
 #define CLUSTER_SIZE 200
 
 // Internal reference voltage for STM32F446RE (mV)
+// Multiply by this value to convert raw voltage input to voltage in mV
 #define REFERENCE_VOLTAGE_CONVERSION 1000.0/1200.0
 // Reference sensitivity for microphone (mV)
+// TODO: Need to check with Sandia to make sure this is correct
 #define AUDIO_REFERENCE 1.00
 // Reference sensitivity for pressure sensor (mV)
 #define PRESSURE_REFERENCE 14.62
@@ -89,16 +95,20 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 
 // 16 bit (Half Word) ADC DMA data width
-// ADC array for data (size of 5, width of 16 bits)
+// ADC array for data (size of 400, width of 16 bits)
+// I am only getting 12 bits from the ADC, so 4 bits of memory are wasted per ADC reading)
 uint16_t adc_data[ADC_BUFFER_SIZE];
 
+// FIXME: These are not currently being used
 uint16_t audio_arr[ADC_BUFFER_SIZE/8];
 uint16_t pressure_arr[ADC_BUFFER_SIZE/8];
 uint16_t acc_arr[ADC_BUFFER_SIZE/8];
-//float acc_arr[ADC_BUFFER_SIZE];
 
+// TODO: Create array to hold date/time info when implemented
 // data_type??? time_arr[ADC_BUFFER_SIZE/8];
 
+// Pointer to index of adc_data array
+// Used for ping pong buffer to set the start index at the halfway point of the adc_data array
 static volatile uint16_t *fromADC_Ptr;
 //static volatile uint16_t *toSD_Ptr = &adc_data[0];
 
@@ -108,8 +118,11 @@ char buffer[BUFFER_SIZE];	// Store strings for f_write
 // Buffer that is written to SD card
 char SD_buffer[SD_BUFFER_SIZE];
 
+// Flag set when DMA buffer is either half-full or completely full
 volatile uint8_t dataReady;
+// Flag set when DMA buffer is half-full
 volatile uint8_t dmaHalf;
+// Flag set when DMA buffer is completely full
 volatile uint8_t dmaFull;
 
 /* USER CODE END PV */
@@ -130,8 +143,8 @@ static void MX_RTC_Init(void);
 /* USER CODE BEGIN 0 */
 
 // These are already defined in file_handling.c
-FATFS fs; // file system
-FIL fil; // file
+FATFS fs; // file system object
+FIL fil; // file object
 FILINFO fno;		// ???
 FRESULT fresult;
 UINT br, bw;
@@ -605,6 +618,7 @@ int main(void)
 	  	  }
 
 	  // Stop when cluster is a certain value (leads to unmount SD card)
+	  // FIXME: UNDO THIS TO SHOW THRESHOLD ACTIVATION WORKS
 //	  if((cluster >= CLUSTER_SIZE) && SAVE_BUFFER_FILE) {
 	  if(cluster >= CLUSTER_SIZE) {
 		  saveBufferStart = HAL_GetTick();
