@@ -51,8 +51,9 @@
 #define SD_BUFFER_SIZE 2500
 
 // Threshold values to detect explosion
+// ADC readings are compared to these values after they are converted to the desired units
 #define THRESHOLD_AUDIO 	   40
-#define THRESHOLD_PRESSURE 	   40
+#define THRESHOLD_PRESSURE 	   4.6 // Change in pressure (kPa)
 #define THRESHOLD_ACCELERATION 40
 
 // Multiple of number of samples read from ADC
@@ -66,7 +67,7 @@
 // Reference sensitivity for microphone (mV)
 // TODO: Need to check with Sandia to make sure this is correct
 #define AUDIO_REFERENCE 1.00
-// Reference sensitivity for pressure sensor (mV)
+// Reference sensitivity for pressure sensor (mV) (14.62 mV/kPa)
 #define PRESSURE_REFERENCE 14.62
 // Pref is the reference pressure in air, which is 20x10-6 Pa
 #define P_REF 0.00002
@@ -162,6 +163,9 @@ uint8_t explosionDetected = 0;
 // 1 if there was an explosion detected for an entire batch
 uint8_t SAVE_BUFFER_FILE = 0;
 
+// Value to store state of SW1 push button
+uint8_t button_value = 0;
+
 int saveBufferStart;
 int saveBufferStop;
 
@@ -213,7 +217,7 @@ void SDbufclear(void) {
 	}
 }
 
-// Size of buffer needs to be a multiple of number of ADC channels (minimum of 5)
+// Size of buffer needs to be a multiple of number of ADC channels (minimum of 4)
 // Needs to be divisible by the number of bytes in each line
 // that I am writing to the SD card				<-- What did I mean by this???
 
@@ -372,15 +376,18 @@ void processData() {
 				delta_acc = 0;
 			}
 
-			// One day this needs to become a function call to a more robust algorithm
 			// Do explosion detection here
-			if((delta_audio >= THRESHOLD_AUDIO) || (delta_pressure >= THRESHOLD_PRESSURE) || (delta_acc >= THRESHOLD_ACCELERATION)) {
+			if(delta_pressure >= THRESHOLD_PRESSURE) {
+				// Explosion detected bit set for the first time
+				// This bit needs to stay set to 1
 				explosionDetected = 1;
 				SAVE_BUFFER_FILE = 1;
 			}
 
 			// Edge case for very first ADC sample (first 4 readings) where previous information does not exist
-			if((i <= 3) && (dmaFull == 0) && (cluster == 0) && (batch == 0)) {
+			// Don't need (dmaFull == 0)
+			// if((i <= 3) && (dmaFull == 0) && (cluster == 0) && (batch == 0)) {
+			if((i <= 3) && (cluster == 0) && (batch == 0)) {
 				delta_audio = 0;
 				delta_pressure = 0;
 				delta_acc = 0;
@@ -391,10 +398,16 @@ void processData() {
 
 			// FIXME: Figure out how to explain this
 		    // Append new string using length of previously added string
+//			snprintf(SD_buffer + strlen(SD_buffer),
+//					SD_BUFFER_SIZE - strlen(SD_buffer),
+//					"%d,%d,%d,%.3f,%.3f\r\n",
+//					batch, cluster, explosionDetected, current_pressure, delta_pressure);
+
+			uint8_t zero = 0;
 			snprintf(SD_buffer + strlen(SD_buffer),
 					SD_BUFFER_SIZE - strlen(SD_buffer),
-					"%d,%d,%d,%.3f,%.3f,%.3f,d = %.3f\r\n",
-					batch, cluster, explosionDetected, current_audio, current_pressure, current_acc, delta_audio);
+					"%d,%d,%d,%.3f,%.3f\r\n",
+					zero, cluster, explosionDetected, current_pressure, delta_pressure);
 
 			// The current samples will be the "previous" samples for the next samples
 			// These are placed in this loop for the same reason that the deltas are placed here
@@ -497,7 +510,7 @@ void setupBufferFile() {
 		bufclear();
 	}
 
-	fresult = f_printf(&fil, "time,explosion,audio,pressure,acceleration,delta_audio\r\n");
+	fresult = f_printf(&fil, "batch,cluster,explosion,pressure,delta_pressure\r\n");
 }
 
 
@@ -571,7 +584,7 @@ int main(void)
   // Turn this setup process into a function
 
   char *name = "adc_data.csv";
-  char *column_names = "batch,time,explosion,audio,pressure,acceleration,delta_audio\r\n";
+  char *column_names = "batch,cluster,explosion,pressure,delta_pressure\r\n";
 
   fresult = f_stat(name, &fno);
 
@@ -591,7 +604,7 @@ int main(void)
 		  bufclear();
 	  }
 
-  fresult = f_printf(&fil, "batch,time,explosion,audio,pressure,acceleration,delta_audio\r\n");
+  fresult = f_printf(&fil, "batch,cluster,explosion,pressure,delta_pressure\r\n");
 
   // Get starting tick value (start timer)
   int start = HAL_GetTick();
@@ -619,6 +632,8 @@ int main(void)
 
 	  // Stop when cluster is a certain value (leads to unmount SD card)
 	  // FIXME: UNDO THIS TO SHOW THRESHOLD ACTIVATION WORKS
+	  // saveBufferFile() saves the previous buffer file as a new file with the corresponding batch number
+	  // setupBufferFile() creates a new file which will be used as the next buffer file
 //	  if((cluster >= CLUSTER_SIZE) && SAVE_BUFFER_FILE) {
 	  if(cluster >= CLUSTER_SIZE) {
 		  saveBufferStart = HAL_GetTick();
@@ -626,7 +641,7 @@ int main(void)
 		  setupBufferFile();
 		  saveBufferStop = HAL_GetTick();
 
-		  printf("Time wasted making saving buffer data and creating new buffer file: %d\r\n", saveBufferStop-saveBufferStart);
+		  // printf("Time wasted saving buffer data and creating new buffer file: %d\r\n", saveBufferStop-saveBufferStart);
 
 		  cluster = 0;
 		  SAVE_BUFFER_FILE = 0;
@@ -637,11 +652,24 @@ int main(void)
 //		  // Do this if the buffer file does not need to be saved
 //		  // Begin writing over current buffer file (skipping the column names)
 //		  // overwriteBufferFile();
+//
+//		  // Or, just start writing another buffer file without saving the current buffer file
+//		  cluster = 0;
+//		  SAVE_BUFFER_FILE = 0;
+//
+//		  batch++;
 //	  }
 
 	  // This will eventually turn into an external interrupt from the user
 	  // pressing a button
-	  if(batch >= 10) {
+	  button_value = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
+
+	  // TODO: Uncomment this for button stop functionality
+	  if(button_value == 0) {
+		  break;
+	  }
+
+	  if(batch >= 5) {
 		  break;
 	  }
 
@@ -649,8 +677,8 @@ int main(void)
 
   int stop = HAL_GetTick();
 
-  printf("Total time to write %d samples to SD card (WITH printf): %d ms\n", (ADC_BUFFER_SIZE/8)*CLUSTER_SIZE*batch, (stop - start));
-  printf("Samples per second: %.3f\n", 1.0*(ADC_BUFFER_SIZE/8)*CLUSTER_SIZE*batch/(stop - start));
+  printf("Total time to write %d samples to SD card: %d ms\n", (ADC_BUFFER_SIZE/8)*CLUSTER_SIZE*batch, (stop - start));
+  printf("Samples per second: %.3f\n", 1000.0*(ADC_BUFFER_SIZE/8)*CLUSTER_SIZE*batch/(stop - start));
 
   // Stop ADC DMA and disable ADC
   HAL_ADC_Stop_DMA(&hadc1);
@@ -896,7 +924,7 @@ static void MX_SDIO_SD_Init(void)
   hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
   hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd.Init.ClockDiv = 18;
+  hsd.Init.ClockDiv = 0;
   /* USER CODE BEGIN SDIO_Init 2 */
 
   /* USER CODE END SDIO_Init 2 */
@@ -965,8 +993,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);

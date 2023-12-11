@@ -103,14 +103,13 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     PC3     ------> ADC1_IN13
     PA0-WKUP     ------> ADC1_IN0
     PA1     ------> ADC1_IN1
-    PA4     ------> ADC1_IN4
     */
     GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_3;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_4;
+    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -162,11 +161,10 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
     PC3     ------> ADC1_IN13
     PA0-WKUP     ------> ADC1_IN0
     PA1     ------> ADC1_IN1
-    PA4     ------> ADC1_IN4
     */
     HAL_GPIO_DeInit(GPIOC, GPIO_PIN_2|GPIO_PIN_3);
 
-    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_4);
+    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_0|GPIO_PIN_1);
 
     /* ADC1 DMA DeInit */
     HAL_DMA_DeInit(hadc->DMA_Handle);
@@ -261,22 +259,18 @@ void HAL_SD_MspInit(SD_HandleTypeDef* hsd)
     /* Peripheral clock enable */
     __HAL_RCC_SDIO_CLK_ENABLE();
 
-    __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_GPIOD_CLK_ENABLE();
     /**SDIO GPIO Configuration
-    PB2     ------> SDIO_CK
     PC8     ------> SDIO_D0
+    PC9     ------> SDIO_D1
+    PC10     ------> SDIO_D2
+    PC11     ------> SDIO_D3
+    PC12     ------> SDIO_CK
     PD2     ------> SDIO_CMD
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_2;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF12_SDIO;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = GPIO_PIN_8;
+    GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11
+                          |GPIO_PIN_12;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
@@ -290,9 +284,6 @@ void HAL_SD_MspInit(SD_HandleTypeDef* hsd)
     GPIO_InitStruct.Alternate = GPIO_AF12_SDIO;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-    /* SDIO interrupt Init */
-    HAL_NVIC_SetPriority(SDIO_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(SDIO_IRQn);
   /* USER CODE BEGIN SDIO_MspInit 1 */
 
   /* USER CODE END SDIO_MspInit 1 */
@@ -317,18 +308,18 @@ void HAL_SD_MspDeInit(SD_HandleTypeDef* hsd)
     __HAL_RCC_SDIO_CLK_DISABLE();
 
     /**SDIO GPIO Configuration
-    PB2     ------> SDIO_CK
     PC8     ------> SDIO_D0
+    PC9     ------> SDIO_D1
+    PC10     ------> SDIO_D2
+    PC11     ------> SDIO_D3
+    PC12     ------> SDIO_CK
     PD2     ------> SDIO_CMD
     */
-    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_2);
-
-    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_8);
+    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11
+                          |GPIO_PIN_12);
 
     HAL_GPIO_DeInit(GPIOD, GPIO_PIN_2);
 
-    /* SDIO interrupt DeInit */
-    HAL_NVIC_DisableIRQ(SDIO_IRQn);
   /* USER CODE BEGIN SDIO_MspDeInit 1 */
 
   /* USER CODE END SDIO_MspDeInit 1 */
